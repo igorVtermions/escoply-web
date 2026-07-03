@@ -1,11 +1,12 @@
 import { ArrowRight, CalendarClock, CircleDollarSign, Clock3, FolderKanban, Users } from "lucide-react";
 import { ButtonLink } from "@/components/ui/button-link";
+import { CountUp } from "@/components/ui/count-up";
 
 const stats = [
-  { label: "Clientes ativos", value: "12", icon: Users, tone: "bg-blue-50 text-blue-700" },
-  { label: "Em andamento", value: "08", icon: FolderKanban, tone: "bg-violet-50 text-violet-700" },
-  { label: "Prazos próximos", value: "04", icon: CalendarClock, tone: "bg-amber-50 text-amber-700" },
-  { label: "A receber", value: "R$ 8.450", icon: CircleDollarSign, tone: "bg-emerald-50 text-emerald-700" },
+  { label: "Clientes ativos", value: 12, digits: 1, prefix: "", icon: Users, tone: "bg-blue-50 text-blue-700" },
+  { label: "Em andamento", value: 8, digits: 2, prefix: "", icon: FolderKanban, tone: "bg-violet-50 text-violet-700" },
+  { label: "Prazos próximos", value: 4, digits: 2, prefix: "", icon: CalendarClock, tone: "bg-amber-50 text-amber-700" },
+  { label: "A receber", value: 8450, digits: 1, prefix: "R$ ", icon: CircleDollarSign, tone: "bg-emerald-50 text-emerald-700" },
 ];
 
 export function HeroSection() {
@@ -34,10 +35,10 @@ export function HeroSection() {
               <div className="flex gap-1.5" aria-hidden="true"><span className="size-2.5 rounded-full bg-red-300" /><span className="size-2.5 rounded-full bg-amber-300" /><span className="size-2.5 rounded-full bg-emerald-300" /></div>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              {stats.map(({ label, value, icon: Icon, tone }) => (
+              {stats.map(({ label, value, digits, prefix, icon: Icon, tone }, index) => (
                 <article key={label} className="rounded-2xl border border-border bg-white p-4">
                   <span className={`mb-4 grid size-9 place-items-center rounded-xl ${tone}`}><Icon size={18} aria-hidden="true" /></span>
-                  <p className="text-xl font-bold text-ink sm:text-2xl">{value}</p><p className="mt-1 text-xs text-muted sm:text-sm">{label}</p>
+                  <p className="text-xl font-bold tabular-nums text-ink sm:text-2xl"><CountUp value={value} prefix={prefix} minimumIntegerDigits={digits} delay={350 + index * 140} /></p><p className="mt-1 text-xs text-muted sm:text-sm">{label}</p>
                 </article>
               ))}
             </div>
