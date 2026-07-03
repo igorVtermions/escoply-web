@@ -11,8 +11,8 @@ export function LandingHeader() {
           {navigation.map((item) => <a key={item.href} href={item.href} className="text-sm font-medium text-muted transition hover:text-primary">{item.label}</a>)}
         </nav>
         <div className="flex items-center gap-2">
-          <ButtonLink href="#" variant="ghost" className="hidden sm:inline-flex">Entrar</ButtonLink>
-          <ButtonLink href="#cta" className="px-4 sm:px-5">Começar agora</ButtonLink>
+          <ButtonLink href="#" variant="ghost" className="header-action hidden sm:inline-flex">Entrar</ButtonLink>
+          <ButtonLink href="#cta" className="header-action px-4 sm:px-5">Começar agora</ButtonLink>
         </div>
       </div>
     </header>
