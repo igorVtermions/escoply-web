@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./public/images/logo-escoply.png" alt="Escoply" width="420" />
+  <img src="./public/images/icon-escoply.png" alt="Ícone do Escoply" width="120" />
 </p>
 
 <h1 align="center">Escoply Web</h1>
@@ -29,8 +29,6 @@ O Escoply está sendo construído para oferecer clareza e controle à rotina de 
 ### Acesso à conta
 
 ![Modal de login](./public/screenshots/login-modal.png)
-
-As capturas utilizadas nesta galeria estão armazenadas em `public/screenshots`.
 
 ## Estado atual
 
