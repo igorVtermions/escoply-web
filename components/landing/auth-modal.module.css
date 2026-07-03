@@ -1,0 +1,47 @@
+.overlay {
+  overflow: hidden;
+  padding: 1rem;
+}
+
+.modal {
+  width: calc(100vw - 2rem) !important;
+  max-width: 32rem !important;
+  max-height: calc(100dvh - 2rem) !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.modal::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+.content {
+  padding: 1.5rem !important;
+}
+
+@media (max-width: 40rem) {
+  .overlay {
+    padding: 0.5rem !important;
+  }
+
+  .modal {
+    width: calc(100vw - 1rem) !important;
+    max-height: calc(100dvh - 1rem) !important;
+    border-radius: 1.25rem !important;
+  }
+
+  .content {
+    padding: 1.25rem !important;
+  }
+}
+
+@media (max-height: 46rem) {
+  .overlay {
+    align-items: start !important;
+  }
+}
