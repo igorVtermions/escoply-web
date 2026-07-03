@@ -1,4 +1,8 @@
-# Escoply Web
+<p align="center">
+  <img src="./public/images/logo-escoply.png" alt="Escoply" width="420" />
+</p>
+
+<h1 align="center">Escoply Web</h1>
 
 > Do briefing à entrega, tudo no controle.
 
@@ -26,7 +30,7 @@ O Escoply está sendo construído para oferecer clareza e controle à rotina de 
 
 ![Modal de login](./public/screenshots/login-modal.png)
 
-Os arquivos utilizados nesta galeria devem ser adicionados em [`public/screenshots`](./public/screenshots/README.md) com os nomes indicados acima.
+As capturas utilizadas nesta galeria estão armazenadas em `public/screenshots`.
 
 ## Estado atual
 
