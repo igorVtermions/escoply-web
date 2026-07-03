@@ -1,36 +1,114 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Escoply Web
 
-## Getting Started
+> Do briefing à entrega, tudo no controle.
 
-First, run the development server:
+Escoply é uma plataforma para freelancers centralizarem clientes, projetos, escopos, orçamentos, aprovações, materiais, prazos e lembretes em um só lugar.
+
+O produto nasce para resolver uma rotina comum entre profissionais independentes: informações importantes espalhadas entre WhatsApp, Drive, e-mail, planilhas, anotações e memória. O objetivo é transformar esse processo fragmentado em um fluxo simples e rastreável:
+
+**Cliente → Projeto → Escopo → Orçamento → Aprovação → Entrega → Pagamento**
+
+## Estado atual
+
+Esta versão contém a base visual do projeto e a landing page institucional responsiva do Escoply.
+
+Já estão implementados:
+
+- identidade visual e componentes reutilizáveis;
+- apresentação do problema e da solução;
+- visão geral das funcionalidades planejadas;
+- fluxo de trabalho do produto;
+- prévia do roadmap de IA;
+- apresentação inicial dos planos;
+- FAQ e chamadas para ação;
+- metadados, favicon e assets oficiais da marca.
+
+Autenticação, dashboard, banco de dados, integrações, pagamentos e recursos de IA ainda não fazem parte desta etapa.
+
+## Tecnologias
+
+- [Next.js 16](https://nextjs.org/) com App Router
+- [React 19](https://react.dev/)
+- [TypeScript](https://www.typescriptlang.org/)
+- [Tailwind CSS 4](https://tailwindcss.com/)
+- [Lucide React](https://lucide.dev/) para ícones
+- [Inter](https://fonts.google.com/specimen/Inter) carregada com `next/font`
+
+## Executando localmente
+
+### Requisitos
+
+- Node.js 20 ou superior
+- npm
+
+### Instalação
+
+```bash
+git clone <URL_DO_REPOSITORIO>
+cd escoply-web
+npm install
+```
+
+Inicie o servidor de desenvolvimento:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+A aplicação estará disponível em [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Scripts
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run dev      # inicia o ambiente de desenvolvimento
+npm run build    # gera o build de produção
+npm run start    # executa o build de produção
+npm run lint     # verifica a qualidade do código
+```
 
-## Learn More
+Para validar os tipos sem gerar arquivos:
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+npx tsc --noEmit
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Estrutura do projeto
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```text
+app/
+├── globals.css             # tema global e variáveis visuais
+├── layout.tsx              # layout raiz, fonte e metadados
+└── page.tsx                # composição da landing page
 
-## Deploy on Vercel
+components/
+├── landing/                # seções da landing page
+└── ui/                     # componentes visuais reutilizáveis
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+constants/
+├── brand.ts                # informações e assets da marca
+└── landing.ts              # conteúdo estruturado da página
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+public/images/              # logo e ícone oficiais
+```
+
+## Identidade visual
+
+A interface utiliza azul-marinho e roxo como cores principais, com superfícies claras, gradientes sutis, bordas suaves e tipografia Inter. Os tokens do tema estão definidos como CSS variables em `app/globals.css`, facilitando a evolução consistente para a futura área autenticada.
+
+## Roadmap
+
+As próximas etapas previstas incluem:
+
+- autenticação e área logada;
+- gestão de clientes e projetos;
+- escopos, orçamentos e aprovações;
+- organização de materiais e arquivos;
+- prazos, cobranças e obrigações recorrentes;
+- experiência mobile;
+- camada futura de IA/RAG para consultas e automações contextuais.
+
+Os itens do roadmap representam a direção do produto e ainda não estão disponíveis nesta versão.
+
+## Autor
+
+Desenvolvido por **Igor Franco**.
