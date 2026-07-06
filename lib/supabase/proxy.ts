@@ -1,7 +1,9 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { AUTH_PERSISTENCE_COOKIE, AUTH_SESSION_MODE } from "@/lib/auth/persistence";
 
 export async function updateSession(request: NextRequest) {
+  const sessionOnly = request.cookies.get(AUTH_PERSISTENCE_COOKIE)?.value === AUTH_SESSION_MODE;
   const isPrivateRoute = request.nextUrl.pathname === "/dashboard" || request.nextUrl.pathname.startsWith("/dashboard/");
   const hasAuthCookie = request.cookies.getAll().some(({ name }) => name.startsWith("sb-") && name.includes("-auth-token"));
 
@@ -26,7 +28,10 @@ export async function updateSession(request: NextRequest) {
         cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
         response = NextResponse.next({ request });
         cookiesToSet.forEach(({ name, value, options }) => {
-          response.cookies.set(name, value, options);
+          const cookieOptions = sessionOnly && value !== "" && options.maxAge !== 0
+            ? { ...options, maxAge: undefined, expires: undefined }
+            : options;
+          response.cookies.set(name, value, cookieOptions);
         });
       },
     },

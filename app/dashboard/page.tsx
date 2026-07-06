@@ -1,28 +1,16 @@
-import { DashboardShell } from "@/components/dashboard/dashboard-shell";
+import { DashboardContent } from "@/components/dashboard/dashboard-content";
 import { requireUser } from "@/lib/auth/session";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
-import "./dashboard.css";
+import { getDashboardData, getTodayInSaoPaulo } from "@/lib/dashboard/data";
 
-type Profile = {
-  full_name: string;
-  company_name: string | null;
-  avatar_path: string | null;
-};
+function getValidDate(value: string | string[] | undefined) {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return getTodayInSaoPaulo();
+  const parsedDate = new Date(`${value}T12:00:00Z`);
+  return Number.isNaN(parsedDate.getTime()) || parsedDate.toISOString().slice(0, 10) !== value ? getTodayInSaoPaulo() : value;
+}
 
-export default async function DashboardPage() {
+export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ date?: string | string[] }> }) {
+  const selectedDate = getValidDate((await searchParams).date);
   const user = await requireUser();
-  const supabase = await createSupabaseServerClient();
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("full_name, company_name, avatar_path")
-    .eq("id", user.id)
-    .maybeSingle<Profile>();
-
-  return (
-    <DashboardShell
-      userId={user.id}
-      email={user.email ?? null}
-      profile={profile ?? null}
-    />
-  );
+  const dashboardData = await getDashboardData(user.id, selectedDate);
+  return <DashboardContent data={dashboardData} selectedDate={selectedDate} />;
 }

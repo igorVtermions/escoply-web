@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "r
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Building2, Check, Eye, EyeOff, ImagePlus, LockKeyhole, Mail, UserRound, X } from "lucide-react";
-import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { getSupabaseBrowserClient, setAuthPersistence } from "@/lib/supabase/client";
 import { showToast } from "@/components/ui/toast-provider";
 import styles from "./auth-modal.module.css";
 
@@ -228,6 +228,7 @@ export function AuthModal({ isOpen, mode, onClose, onModeChange }: AuthModalProp
 
     try {
       if (mode === "login") {
+        setAuthPersistence(formData.get("remember") === "on");
         setIsSubmitting(true);
         const { error } = await supabase.auth.signInWithPassword({ email, password });
 
@@ -275,6 +276,7 @@ export function AuthModal({ isOpen, mode, onClose, onModeChange }: AuthModalProp
       }
 
       setIsSubmitting(true);
+      setAuthPersistence(true);
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
