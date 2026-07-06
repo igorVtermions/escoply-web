@@ -22,6 +22,7 @@
 
 .content {
   padding: 1.5rem !important;
+  overflow: visible;
 }
 
 @media (max-width: 40rem) {

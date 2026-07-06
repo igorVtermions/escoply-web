@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { AuthModal, type AuthMode } from "@/components/landing/auth-modal";
 import { BrandLogo } from "@/components/ui/brand-logo";
 import { ButtonLink } from "@/components/ui/button-link";
@@ -10,6 +10,21 @@ export function LandingHeader() {
   const [authMode, setAuthMode] = useState<AuthMode>("login");
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const closeAuth = useCallback(() => setIsAuthOpen(false), []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("auth") !== "login") return;
+
+    const timer = window.setTimeout(() => {
+      setAuthMode("login");
+      setIsAuthOpen(true);
+    }, 0);
+    params.delete("auth");
+    params.delete("reason");
+    const query = params.toString();
+    window.history.replaceState(null, "", `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash}`);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   const openAuth = (mode: AuthMode) => {
     setAuthMode(mode);
