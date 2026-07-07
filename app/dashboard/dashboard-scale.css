@@ -356,6 +356,13 @@
   height: 1.55rem;
 }
 
+.dashboard-metric-icon svg path,
+.dashboard-metric-icon svg line,
+.dashboard-metric-icon svg circle,
+.dashboard-metric-icon svg polyline {
+  stroke: currentColor;
+}
+
 .dashboard-metric p { font-size: .8rem; }
 .dashboard-metric strong { font-size: 1.4rem; }
 .dashboard-metric span { font-size: .66rem; }
@@ -410,10 +417,34 @@
   padding: .78rem 0;
 }
 
+.deadline-item.is-clickable {
+  width: 100%;
+  border-radius: .75rem;
+  color: inherit;
+  text-align: left;
+  transition: background-color 220ms ease, transform 220ms ease;
+}
+
+.deadline-item.is-clickable:hover {
+  background: #f8fafc;
+  transform: translateX(2px);
+}
+
+.deadline-item.is-clickable:focus-visible {
+  outline: 2px solid #8b5cf6;
+  outline-offset: 2px;
+}
+
 .client-avatar {
   width: 2.3rem;
   height: 2.3rem;
   font-size: .6rem;
+  background-position: center;
+  background-size: cover;
+}
+
+.client-avatar.has-image {
+  color: transparent;
 }
 
 .deadline-item strong { font-size: .72rem; }
@@ -447,6 +478,162 @@
 .welcome-modal h2 { font-size: 2rem; }
 .welcome-modal p { font-size: .94rem; }
 .welcome-actions button { min-height: 3.1rem; font-size: .86rem; }
+
+.dashboard-client-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 270;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(4, 19, 66, .72);
+  backdrop-filter: blur(14px);
+  animation: auth-overlay-in 280ms ease both;
+}
+
+.dashboard-client-modal {
+  position: relative;
+  width: min(100%, 34rem);
+  padding: 1.6rem;
+  border: 1px solid rgba(255,255,255,.62);
+  border-radius: 1.35rem;
+  background: #fff;
+  box-shadow: 0 34px 100px -24px rgba(4,19,66,.68);
+  animation: auth-modal-in 460ms var(--ease-out-smooth) both;
+}
+
+.dashboard-client-modal-close {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  display: grid;
+  width: 2.35rem;
+  height: 2.35rem;
+  place-items: center;
+  border-radius: .75rem;
+  color: #64748b;
+  background: #f1f5f9;
+  transition: color 220ms ease, background-color 220ms ease;
+}
+
+.dashboard-client-modal-close:hover {
+  color: #071e63;
+  background: #e2e8f0;
+}
+
+.dashboard-client-modal-profile {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding-right: 2.75rem;
+}
+
+.dashboard-client-modal-profile .client-avatar {
+  width: 4rem;
+  height: 4rem;
+  font-size: 1rem;
+}
+
+.dashboard-client-modal-profile span {
+  color: #6d28d9;
+  font-size: .68rem;
+  font-weight: 850;
+  text-transform: uppercase;
+  letter-spacing: .1em;
+}
+
+.dashboard-client-modal-profile h2 {
+  margin-top: .25rem;
+  color: #071542;
+  font-size: 1.45rem;
+  font-weight: 850;
+  letter-spacing: -.035em;
+}
+
+.dashboard-client-modal-profile p {
+  margin-top: .15rem;
+  color: #64748b;
+  font-size: .86rem;
+}
+
+.dashboard-client-modal-contact {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .65rem;
+  margin-top: 1.25rem;
+}
+
+.dashboard-client-modal-contact a,
+.dashboard-client-modal-contact p {
+  display: flex;
+  min-width: 0;
+  min-height: 2.65rem;
+  align-items: center;
+  gap: .5rem;
+  padding: .65rem .75rem;
+  border: 1px solid #e4e9f1;
+  border-radius: .75rem;
+  color: #475569;
+  font-size: .76rem;
+}
+
+.dashboard-client-modal-contact a {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: color 220ms ease, border-color 220ms ease, background-color 220ms ease;
+}
+
+.dashboard-client-modal-contact a:hover {
+  color: #4f46e5;
+  border-color: #ddd6fe;
+  background: #faf9ff;
+}
+
+.dashboard-client-modal-contact p {
+  grid-column: 1 / -1;
+  justify-content: center;
+  color: #64748b;
+}
+
+.dashboard-client-modal-project,
+.dashboard-client-modal-notes {
+  margin-top: 1rem;
+  padding: 1rem;
+  border: 1px solid #e4e9f1;
+  border-radius: .9rem;
+  background: #fbfcff;
+}
+
+.dashboard-client-modal-project > strong,
+.dashboard-client-modal-notes > strong {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  color: #071542;
+  font-size: .84rem;
+}
+
+.dashboard-client-modal-project > div {
+  display: grid;
+  gap: .5rem;
+  margin-top: .75rem;
+}
+
+.dashboard-client-modal-project span {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  color: #475569;
+  font-size: .76rem;
+}
+
+.dashboard-client-modal-notes p {
+  margin-top: .55rem;
+  color: #64748b;
+  font-size: .78rem;
+  line-height: 1.6;
+}
 
 .logout-confirm-overlay {
   position: fixed;

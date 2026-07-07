@@ -14,7 +14,7 @@ type Profile = { full_name: string; company_name: string | null; avatar_path: st
 const navigation = [
   { label: "Dashboard", icon: Home, href: "/dashboard", available: true },
   { label: "Clientes", icon: UsersRound, href: "/dashboard/clientes", available: true },
-  { label: "Projetos", icon: BriefcaseBusiness, href: "/dashboard/projetos", available: false },
+  { label: "Projetos", icon: BriefcaseBusiness, href: "/dashboard/projetos", available: true },
   { label: "Lembretes", icon: Bell, href: "/dashboard/lembretes", available: false },
   { label: "Obrigações", icon: ClipboardList, href: "/dashboard/obrigacoes", available: false },
   { label: "Materiais", icon: Folder, href: "/dashboard/materiais", available: false },
@@ -63,6 +63,7 @@ export function WorkspaceShell({ children, email, profile, avatarUrl, dashboardD
   useEffect(() => {
     router.prefetch("/dashboard");
     router.prefetch("/dashboard/clientes");
+    router.prefetch("/dashboard/projetos");
   }, [router]);
 
   useEffect(() => {
@@ -93,7 +94,7 @@ export function WorkspaceShell({ children, email, profile, avatarUrl, dashboardD
         <nav className="dashboard-nav" aria-label="Menu principal">
           {navigation.map((item) => {
             const Icon = item.icon;
-            const isActive = activePath === item.href;
+            const isActive = item.href === "/dashboard" ? activePath === item.href : activePath === item.href || activePath.startsWith(`${item.href}/`);
             if (!item.available) return <button key={item.href} type="button" disabled title={`${item.label} — em breve`}><Icon size={20} /><span>{item.label}</span></button>;
             return <Link key={item.href} href={item.href} prefetch className={isActive ? "active" : ""} aria-current={isActive ? "page" : undefined} title={isSidebarCollapsed ? item.label : undefined} onClick={() => startTransition(() => setOptimisticPath(item.href))}><Icon size={20} /><span>{item.label}</span></Link>;
           })}

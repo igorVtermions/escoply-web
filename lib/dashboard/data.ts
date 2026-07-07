@@ -14,7 +14,15 @@ export type DashboardReminder = {
 export type DashboardDeadline = {
   id: string;
   name: string;
+  clientId: string | null;
   clientName: string;
+  clientCompanyName: string | null;
+  clientEmail: string | null;
+  clientPhone: string | null;
+  clientWhatsapp: string | null;
+  clientWebsite: string | null;
+  clientNotes: string | null;
+  clientLogoUrl: string | null;
   progress: number;
   deadline: string;
 };
@@ -61,7 +69,17 @@ type DeadlineRow = {
   name: string;
   progress: number;
   deadline: string;
-  clients: { name: string } | null;
+  clients: {
+    id: string;
+    name: string;
+    company_name: string | null;
+    email: string | null;
+    phone: string | null;
+    whatsapp: string | null;
+    website: string | null;
+    notes: string | null;
+    logo_path: string | null;
+  } | null;
 };
 
 type BudgetRow = {
@@ -123,7 +141,7 @@ export async function getDashboardData(ownerId: string, selectedDate: string): P
     supabase.from("projects").select("id", { count: "exact", head: true }).eq("owner_id", ownerId).not("deadline", "is", null).gte("deadline", dates.today).lt("deadline", dates.nextThirtyDays).neq("status", "completed").neq("status", "archived"),
     supabase.from("payments").select("amount").eq("owner_id", ownerId).in("status", ["pending", "overdue"]).overrideTypes<PaymentRow[]>(),
     supabase.from("reminders").select("id, title, kind, scheduled_at, projects(name, clients(name))").eq("owner_id", ownerId).is("completed_at", null).gte("scheduled_at", `${dates.today}T00:00:00-03:00`).lt("scheduled_at", `${dates.tomorrow}T00:00:00-03:00`).order("scheduled_at").limit(5).overrideTypes<ReminderRow[]>(),
-    supabase.from("projects").select("id, name, progress, deadline, clients(name)").eq("owner_id", ownerId).not("deadline", "is", null).gte("deadline", dates.today).neq("status", "completed").neq("status", "archived").order("deadline").limit(5).overrideTypes<DeadlineRow[]>(),
+    supabase.from("projects").select("id, name, progress, deadline, clients(id, name, company_name, email, phone, whatsapp, website, notes, logo_path)").eq("owner_id", ownerId).not("deadline", "is", null).gte("deadline", dates.today).neq("status", "completed").neq("status", "archived").order("deadline").limit(5).overrideTypes<DeadlineRow[]>(),
     supabase.from("budgets").select("id, amount, status, projects(name, clients(name))").eq("owner_id", ownerId).in("status", ["draft", "sent"]).order("created_at", { ascending: false }).limit(5).overrideTypes<BudgetRow[]>(),
     supabase.from("obligations").select("id, title, type, due_date, status").eq("owner_id", ownerId).gte("due_date", dates.monthStart).lt("due_date", dates.nextMonthStart).order("due_date").limit(6).overrideTypes<ObligationRow[]>(),
   ]);
@@ -131,6 +149,12 @@ export async function getDashboardData(ownerId: string, selectedDate: string): P
   const results = [clientsResult, projectsResult, deadlineCountResult, paymentsResult, remindersResult, deadlinesResult, budgetsResult, obligationsResult];
   const failedResult = results.find((result) => result.error);
   if (failedResult?.error) throw failedResult.error;
+
+  const deadlineLogoPaths = (deadlinesResult.data ?? []).flatMap((project) => project.clients?.logo_path ? [project.clients.logo_path] : []);
+  const deadlineLogoUrls = deadlineLogoPaths.length > 0
+    ? await supabase.storage.from("client-logos").createSignedUrls(deadlineLogoPaths, 60 * 60)
+    : { data: [] };
+  const deadlineLogoUrlMap = new Map((deadlineLogoUrls.data ?? []).flatMap((logo) => logo.path && logo.signedUrl ? [[logo.path, logo.signedUrl] as const] : []));
 
   return {
     metrics: {
@@ -150,7 +174,15 @@ export async function getDashboardData(ownerId: string, selectedDate: string): P
     deadlines: (deadlinesResult.data ?? []).map((project) => ({
       id: project.id,
       name: project.name,
+      clientId: project.clients?.id ?? null,
       clientName: project.clients?.name ?? "Sem cliente",
+      clientCompanyName: project.clients?.company_name ?? null,
+      clientEmail: project.clients?.email ?? null,
+      clientPhone: project.clients?.phone ?? null,
+      clientWhatsapp: project.clients?.whatsapp ?? null,
+      clientWebsite: project.clients?.website ?? null,
+      clientNotes: project.clients?.notes ?? null,
+      clientLogoUrl: project.clients?.logo_path ? deadlineLogoUrlMap.get(project.clients.logo_path) ?? null : null,
       progress: project.progress,
       deadline: project.deadline,
     })),
