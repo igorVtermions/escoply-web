@@ -3,7 +3,8 @@
 import { startTransition, useEffect, useMemo, useOptimistic, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Bell, BriefcaseBusiness, CalendarDays, ChevronLeft, ChevronRight, ClipboardList, Crown, Folder, Home, LogOut, Search, Settings, UsersRound } from "lucide-react";
+import { Bell, BriefcaseBusiness, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, ClipboardList, Crown, Folder, Home, LogOut, Search, Settings, UsersRound } from "lucide-react";
+import { markReminderSeenAction } from "@/app/dashboard/actions";
 import { BrandLogo } from "@/components/ui/brand-logo";
 import { showToast } from "@/components/ui/toast-provider";
 import type { DashboardData } from "@/lib/dashboard/data";
@@ -15,7 +16,7 @@ const navigation = [
   { label: "Dashboard", icon: Home, href: "/dashboard", available: true },
   { label: "Clientes", icon: UsersRound, href: "/dashboard/clientes", available: true },
   { label: "Projetos", icon: BriefcaseBusiness, href: "/dashboard/projetos", available: true },
-  { label: "Lembretes", icon: Bell, href: "/dashboard/lembretes", available: false },
+  { label: "Tarefas", icon: Bell, href: "/dashboard/tarefas", available: true },
   { label: "Obrigações", icon: ClipboardList, href: "/dashboard/obrigacoes", available: false },
   { label: "Materiais", icon: Folder, href: "/dashboard/materiais", available: false },
   { label: "Configurações", icon: Settings, href: "/dashboard/configuracoes", available: false },
@@ -23,6 +24,16 @@ const navigation = [
 
 const dateFormatter = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" });
 const timeFormatter = new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" });
+
+const reminderKindLabels: Record<string, string> = {
+  meeting: "Reunião",
+  action: "Ação",
+  review: "Revisão",
+  delivery: "Entrega",
+  follow_up: "Follow-up",
+  charge: "Cobrança",
+  other: "Lembrete",
+};
 
 function getInitials(name: string) {
   return name.split(" ").filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join("") || "ES";
@@ -57,13 +68,17 @@ export function WorkspaceShell({ children, email, profile, avatarUrl, dashboardD
   const [activePopover, setActivePopover] = useState<"calendar" | "notifications" | null>(null);
   const [showLogoutConfirmation, setShowLogoutConfirmation] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [pendingReminderId, setPendingReminderId] = useState<string | null>(null);
+  const [seenReminderIds, setSeenReminderIds] = useState<Set<string>>(() => new Set());
   const activePath = optimisticPath;
   const displayName = useMemo(() => profile?.full_name || email?.split("@")[0] || "Freelancer", [email, profile]);
+  const visibleReminders = useMemo(() => dashboardData.reminders.filter((reminder) => !seenReminderIds.has(reminder.id)), [dashboardData.reminders, seenReminderIds]);
 
   useEffect(() => {
     router.prefetch("/dashboard");
     router.prefetch("/dashboard/clientes");
     router.prefetch("/dashboard/projetos");
+    router.prefetch("/dashboard/tarefas");
   }, [router]);
 
   useEffect(() => {
@@ -87,6 +102,27 @@ export function WorkspaceShell({ children, email, profile, avatarUrl, dashboardD
     router.refresh();
   };
 
+  const handleMarkReminderSeen = (reminderId: string) => {
+    setPendingReminderId(reminderId);
+    startTransition(() => {
+      void markReminderSeenAction(reminderId).then((result) => {
+        setPendingReminderId(null);
+        if (!result.success) {
+          showToast({ type: "error", title: "Ação não concluída", description: result.message });
+          return;
+        }
+
+        setSeenReminderIds((current) => {
+          const next = new Set(current);
+          next.add(reminderId);
+          return next;
+        });
+        showToast({ type: "success", title: "Lembrete visto", description: "Ele saiu da lista de pendências de hoje." });
+        router.refresh();
+      });
+    });
+  };
+
   return (
     <main className={`dashboard-app ${isSidebarCollapsed ? "is-sidebar-collapsed" : ""}`}>
       <aside className="dashboard-sidebar">
@@ -108,7 +144,7 @@ export function WorkspaceShell({ children, email, profile, avatarUrl, dashboardD
           <div className="dashboard-actions">
             {activePopover && <button type="button" className="dashboard-popover-dismiss" aria-label="Fechar menu" onClick={() => setActivePopover(null)} />}
             <div className="dashboard-action-wrap"><button type="button" aria-label="Próximos prazos" aria-expanded={activePopover === "calendar"} onClick={() => setActivePopover((current) => current === "calendar" ? null : "calendar")}><CalendarDays size={21} /></button>{activePopover === "calendar" && <section className="dashboard-popover"><header><CalendarDays size={18} /><strong>Próximos prazos</strong></header>{dashboardData.deadlines.length === 0 ? <p>Nenhum prazo futuro cadastrado.</p> : dashboardData.deadlines.map((deadline) => <div className="dashboard-popover-item" key={deadline.id}><span><strong>{deadline.name}</strong><small>{deadline.clientName}</small></span><time>{dateFormatter.format(new Date(`${deadline.deadline}T12:00:00Z`))}</time></div>)}</section>}</div>
-            <div className="dashboard-action-wrap"><button type="button" aria-label="Lembretes de hoje" aria-expanded={activePopover === "notifications"} className={dashboardData.reminders.length ? "has-badge" : ""} onClick={() => setActivePopover((current) => current === "notifications" ? null : "notifications")}><Bell size={21} />{dashboardData.reminders.length > 0 && <span>{dashboardData.reminders.length}</span>}</button>{activePopover === "notifications" && <section className="dashboard-popover"><header><Bell size={18} /><strong>Lembretes de hoje</strong></header>{dashboardData.reminders.length === 0 ? <p>Nenhum lembrete pendente para hoje.</p> : dashboardData.reminders.map((reminder) => <div className="dashboard-popover-item" key={reminder.id}><span><strong>{reminder.title}</strong><small>{reminder.projectName ?? "Lembrete geral"}</small></span><time>{timeFormatter.format(new Date(reminder.scheduledAt))}</time></div>)}</section>}</div>
+            <div className="dashboard-action-wrap"><button type="button" aria-label="Lembretes de hoje" aria-expanded={activePopover === "notifications"} className={visibleReminders.length ? "has-badge" : ""} onClick={() => setActivePopover((current) => current === "notifications" ? null : "notifications")}><Bell size={21} />{visibleReminders.length > 0 && <span>{visibleReminders.length}</span>}</button>{activePopover === "notifications" && <section className="dashboard-popover dashboard-reminders-popover"><header><div><Bell size={18} /><strong>Lembretes de hoje</strong></div><span>{visibleReminders.length} {visibleReminders.length === 1 ? "pendente" : "pendentes"}</span></header>{visibleReminders.length === 0 ? <p>Nenhum lembrete pendente para hoje.</p> : <div className="dashboard-reminders-popover-list">{visibleReminders.map((reminder) => <article className="dashboard-reminder-card" key={reminder.id}><div className="dashboard-reminder-card-icon"><Bell size={17} /></div><div className="dashboard-reminder-card-content"><div><strong>{reminder.title}</strong><time>{timeFormatter.format(new Date(reminder.scheduledAt))}</time></div><p>{reminder.projectName ?? "Lembrete geral"}{reminder.clientName ? ` · ${reminder.clientName}` : ""}</p><span>{reminderKindLabels[reminder.kind] ?? "Lembrete"}</span></div><button type="button" onClick={() => handleMarkReminderSeen(reminder.id)} disabled={pendingReminderId === reminder.id}><CheckCircle2 size={16} />{pendingReminderId === reminder.id ? "Marcando..." : "Marcar como visto"}</button></article>)}</div>}</section>}</div>
             <div className="dashboard-user"><span className={avatarUrl ? "has-image" : ""} style={avatarUrl ? { backgroundImage: `url(${avatarUrl})` } : undefined}>{!avatarUrl && getInitials(displayName)}</span><div><strong>{displayName}</strong><small>{profile?.company_name || "Designer Freelancer"}</small></div></div>
             <button type="button" className="dashboard-logout" onClick={() => setShowLogoutConfirmation(true)} aria-label="Sair"><LogOut size={19} /></button>
           </div>

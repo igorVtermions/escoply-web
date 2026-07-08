@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useActionState, useEffect, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { Bell, BriefcaseBusiness, Building2, CalendarDays, CheckCircle2, ClipboardList, Clock3, DollarSign, FileText, Globe2, Mail, Phone, Plus, UsersRound, X } from "lucide-react";
+import { createObligationAction } from "@/app/dashboard/actions";
+import { showToast } from "@/components/ui/toast-provider";
 import type { DashboardData } from "@/lib/dashboard/data";
 
 const reminderPresentation: Record<string, { label: string; color: string }> = {
@@ -58,6 +60,8 @@ function ClientAvatar({ name, logoUrl }: { name: string; logoUrl: string | null 
 export function DashboardContent({ data, selectedDate }: { data: DashboardData; selectedDate: string }) {
   const router = useRouter();
   const [selectedDeadline, setSelectedDeadline] = useState<DashboardData["deadlines"][number] | null>(null);
+  const [selectedBudget, setSelectedBudget] = useState<DashboardData["budgets"][number] | null>(null);
+  const [isObligationModalOpen, setIsObligationModalOpen] = useState(false);
   const [isDatePending, startDateTransition] = useTransition();
   const metrics = [
     { label: "Clientes ativos", value: String(data.metrics.activeClients), helper: "Dados atuais", icon: UsersRound, tone: "blue" },
@@ -117,13 +121,21 @@ export function DashboardContent({ data, selectedDate }: { data: DashboardData; 
           <header><div><FileText size={20} /><h2>Orçamentos pendentes</h2></div><button type="button">Ver todos</button></header>
           <div className="budget-list">
             {data.budgets.length === 0 && <EmptyPanelState>Nenhum orçamento pendente.</EmptyPanelState>}
-            {data.budgets.map((budget) => <div key={budget.id} className="budget-item"><span>{getInitials(budget.clientName)}</span><strong>{budget.clientName}</strong><small>{budget.projectName}</small><b>{currencyFormatter.format(budget.amount)}</b><em className={budget.status === "sent" ? "sent" : "draft"}>{budgetLabels[budget.status] ?? budget.status}</em></div>)}
+            {data.budgets.map((budget) => (
+              <button type="button" key={budget.id} className="budget-item is-clickable" onClick={() => setSelectedBudget(budget)}>
+                <ClientAvatar name={budget.clientName} logoUrl={budget.clientLogoUrl} />
+                <strong>{budget.clientName}</strong>
+                <small>{budget.projectName}</small>
+                <b>{currencyFormatter.format(budget.amount)}</b>
+                <em className={budget.status === "sent" ? "sent" : "draft"}>{budgetLabels[budget.status] ?? budget.status}</em>
+              </button>
+            ))}
             {data.budgets.length > 0 && <footer><span>Total</span><strong>{currencyFormatter.format(data.budgets.reduce((total, budget) => total + budget.amount, 0))}</strong></footer>}
           </div>
         </article>
 
         <article className="dashboard-panel dashboard-obligations">
-          <header><div><ClipboardList size={20} /><h2>Obrigações do mês</h2></div><button type="button"><Plus size={16} /> Nova obrigação</button></header>
+          <header><div><ClipboardList size={20} /><h2>Obrigações do mês</h2></div><button type="button" onClick={() => setIsObligationModalOpen(true)}><Plus size={16} /> Nova obrigação</button></header>
           <div className="obligation-table">
             {data.obligations.length === 0 && <EmptyPanelState>Nenhuma obrigação cadastrada para este mês.</EmptyPanelState>}
             {data.obligations.map((obligation) => {
@@ -135,11 +147,95 @@ export function DashboardContent({ data, selectedDate }: { data: DashboardData; 
       </section>
 
       {selectedDeadline && <DeadlineClientModal deadline={selectedDeadline} selectedDate={selectedDate} onClose={() => setSelectedDeadline(null)} />}
+      {selectedBudget && <BudgetDetailsModal budget={selectedBudget} selectedDate={selectedDate} onClose={() => setSelectedBudget(null)} />}
+      {isObligationModalOpen && <CreateObligationModal selectedDate={selectedDate} onClose={() => setIsObligationModalOpen(false)} />}
     </div>
   );
 }
 
+function CreateObligationModal({ selectedDate, onClose }: { selectedDate: string; onClose: () => void }) {
+  const router = useRouter();
+  const [state, formAction, isPending] = useActionState(createObligationAction, { success: false, message: "" });
+
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !isPending) onClose();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isPending, onClose]);
+
+  useEffect(() => {
+    if (!state.message) return;
+    if (!state.success) {
+      showToast({ type: "error", title: "Ação não concluída", description: state.message });
+      return;
+    }
+
+    showToast({ type: "success", title: "Obrigação criada", description: state.message });
+    onClose();
+    router.refresh();
+  }, [onClose, router, state]);
+
+  return createPortal(
+    <div className="dashboard-client-modal-overlay" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !isPending) onClose(); }}>
+      <section className="dashboard-client-modal dashboard-obligation-modal" role="dialog" aria-modal="true" aria-labelledby="dashboard-obligation-modal-title">
+        <button type="button" className="dashboard-client-modal-close" onClick={onClose} disabled={isPending} aria-label="Fechar"><X size={20} /></button>
+        <span className="dashboard-modal-kicker">Obrigação</span>
+        <h2 id="dashboard-obligation-modal-title">Nova obrigação</h2>
+        <p>Cadastre impostos, contribuições, cobranças administrativas ou tarefas financeiras do mês.</p>
+
+        <form action={formAction} className="dashboard-obligation-form">
+          <label>
+            Título
+            <input name="title" type="text" required minLength={2} maxLength={180} placeholder="Ex.: DAS MEI, INSS, relatório mensal..." />
+          </label>
+
+          <div>
+            <label>
+              Tipo
+              <select name="type" defaultValue="administrative">
+                <option value="tax">Imposto</option>
+                <option value="contribution">Contribuição</option>
+                <option value="administrative">Administrativo</option>
+                <option value="financial">Financeiro</option>
+                <option value="other">Outro</option>
+              </select>
+            </label>
+
+            <label>
+              Vencimento
+              <input name="due_date" type="date" required defaultValue={selectedDate} />
+            </label>
+          </div>
+
+          <label>
+            Status
+            <select name="status" defaultValue="not_started">
+              <option value="not_started">Não iniciada</option>
+              <option value="pending">Pendente</option>
+              <option value="in_progress">Em andamento</option>
+              <option value="paid">Paga</option>
+              <option value="completed">Concluída</option>
+            </select>
+          </label>
+
+          <button type="submit" disabled={isPending}>{isPending ? "Criando..." : "Criar obrigação"}</button>
+        </form>
+      </section>
+    </div>,
+    document.body,
+  );
+}
+
 function DeadlineClientModal({ deadline, selectedDate, onClose }: { deadline: DashboardData["deadlines"][number]; selectedDate: string; onClose: () => void }) {
+  const router = useRouter();
+
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -187,6 +283,67 @@ function DeadlineClientModal({ deadline, selectedDate, onClose }: { deadline: Da
           <strong>Notas</strong>
           <p>{deadline.clientNotes || "Nenhuma observação cadastrada para este cliente."}</p>
         </div>
+
+        <button type="button" className="dashboard-budget-open-project" onClick={() => router.push(`/dashboard/projetos/${deadline.id}`)}>Abrir projeto completo</button>
+      </section>
+    </div>,
+    document.body,
+  );
+}
+
+function BudgetDetailsModal({ budget, selectedDate, onClose }: { budget: DashboardData["budgets"][number]; selectedDate: string; onClose: () => void }) {
+  const router = useRouter();
+
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [onClose]);
+
+  return createPortal(
+    <div className="dashboard-client-modal-overlay" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+      <section className="dashboard-client-modal dashboard-budget-modal" role="dialog" aria-modal="true" aria-labelledby="dashboard-budget-modal-title">
+        <button type="button" className="dashboard-client-modal-close" onClick={onClose} aria-label="Fechar"><X size={20} /></button>
+        <div className="dashboard-client-modal-profile">
+          <ClientAvatar name={budget.clientName} logoUrl={budget.clientLogoUrl} />
+          <div>
+            <span>Detalhes do orçamento</span>
+            <h2 id="dashboard-budget-modal-title">{budget.projectName}</h2>
+            <p>{budget.clientName}{budget.clientCompanyName ? ` · ${budget.clientCompanyName}` : ""}</p>
+          </div>
+        </div>
+
+        <div className="dashboard-budget-detail-grid">
+          <div><span>Valor</span><strong>{currencyFormatter.format(budget.amount)}</strong></div>
+          <div><span>Status</span><em className={budget.status === "sent" ? "sent" : "draft"}>{budgetLabels[budget.status] ?? budget.status}</em></div>
+          <div><span>Validade da proposta</span><strong>{budget.validUntil ? dateFormatter.format(new Date(`${budget.validUntil}T12:00:00Z`)) : "Sem validade"}</strong></div>
+          <div><span>Condição de pagamento</span><strong>{budget.paymentCondition || "Não definida"}</strong></div>
+        </div>
+
+        <div className="dashboard-client-modal-project">
+          <strong><BriefcaseBusiness size={17} /> Projeto vinculado</strong>
+          <div>
+            <span><Building2 size={16} />{budget.projectName}</span>
+            <span><CheckCircle2 size={16} />{budget.projectProgress ?? 0}% de progresso</span>
+            <span><CalendarDays size={16} />{budget.projectDeadline ? `${dateFormatter.format(new Date(`${budget.projectDeadline}T12:00:00Z`))} · ${getDaysUntil(budget.projectDeadline, selectedDate)}` : "Sem prazo definido"}</span>
+          </div>
+        </div>
+
+        <div className="dashboard-client-modal-contact">
+          {budget.clientEmail && <a href={`mailto:${budget.clientEmail}`}><Mail size={16} />{budget.clientEmail}</a>}
+          {budget.clientPhone && <a href={`tel:${budget.clientPhone}`}><Phone size={16} />{budget.clientPhone}</a>}
+          {budget.clientWhatsapp && <a href={getWhatsAppUrl(budget.clientWhatsapp)} target="_blank" rel="noreferrer"><Phone size={16} />{budget.clientWhatsapp}</a>}
+          {!budget.clientEmail && !budget.clientPhone && !budget.clientWhatsapp && <p>Nenhum contato cadastrado para este cliente.</p>}
+        </div>
+
+        {budget.projectId && <button type="button" className="dashboard-budget-open-project" onClick={() => router.push(`/dashboard/projetos/${budget.projectId}`)}>Abrir projeto completo</button>}
       </section>
     </div>,
     document.body,

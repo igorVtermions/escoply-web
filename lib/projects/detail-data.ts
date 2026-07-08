@@ -51,6 +51,11 @@ export type ProjectDetailData = {
     amount: number;
     status: string;
     paidAt: string | null;
+    receiptUrl: string | null;
+    receiptPath: string | null;
+    receiptFileName: string | null;
+    receiptMimeType: string | null;
+    receiptFileSize: number | null;
   }>;
   scopeItems: Array<{
     id: string;
@@ -127,6 +132,10 @@ type PaymentRow = {
   amount: number | string;
   status: string;
   paid_at: string | null;
+  receipt_path: string | null;
+  receipt_file_name: string | null;
+  receipt_mime_type: string | null;
+  receipt_file_size: number | null;
 };
 
 type ScopeItemRow = {
@@ -183,7 +192,7 @@ export async function getProjectDetailData({ ownerId, projectId }: { ownerId: st
   const [budgetResult, remindersResult, paymentsResult, scopeResult, approvalsResult, materialsResult, profileResult] = await Promise.all([
     supabase.from("budgets").select("id, amount, status, valid_until, payment_condition").eq("owner_id", ownerId).eq("project_id", projectId).order("created_at", { ascending: false }).limit(1).maybeSingle<BudgetRow>(),
     supabase.from("reminders").select("id, title, kind, scheduled_at").eq("owner_id", ownerId).eq("project_id", projectId).is("completed_at", null).order("scheduled_at").limit(6).overrideTypes<ReminderRow[]>(),
-    supabase.from("payments").select("id, description, due_date, amount, status, paid_at").eq("owner_id", ownerId).eq("project_id", projectId).order("due_date").overrideTypes<PaymentRow[]>(),
+    supabase.from("payments").select("id, description, due_date, amount, status, paid_at, receipt_path, receipt_file_name, receipt_mime_type, receipt_file_size").eq("owner_id", ownerId).eq("project_id", projectId).order("due_date").overrideTypes<PaymentRow[]>(),
     supabase.from("project_scope_items").select("id, title, position, completed_at").eq("owner_id", ownerId).eq("project_id", projectId).order("position").overrideTypes<ScopeItemRow[]>(),
     supabase.from("project_approvals").select("id, title, note, status, approved_at, created_at").eq("owner_id", ownerId).eq("project_id", projectId).order("created_at").overrideTypes<ApprovalRow[]>(),
     supabase.from("project_materials").select("id, kind, title, url, file_path, file_size, mime_type, note, created_at").eq("owner_id", ownerId).eq("project_id", projectId).order("created_at", { ascending: false }).overrideTypes<MaterialRow[]>(),
@@ -200,6 +209,9 @@ export async function getProjectDetailData({ ownerId, projectId }: { ownerId: st
   const materialFilePaths = (materialsResult.data ?? []).flatMap((material) => material.file_path ? [material.file_path] : []);
   const materialSignedUrls = materialFilePaths.length > 0 ? await supabase.storage.from("project-materials").createSignedUrls(materialFilePaths, 60 * 60) : { data: [] };
   const materialUrlMap = new Map((materialSignedUrls.data ?? []).flatMap((file) => file.path && file.signedUrl ? [[file.path, file.signedUrl] as const] : []));
+  const receiptFilePaths = (paymentsResult.data ?? []).flatMap((payment) => payment.receipt_path ? [payment.receipt_path] : []);
+  const receiptSignedUrls = receiptFilePaths.length > 0 ? await supabase.storage.from("payment-receipts").createSignedUrls(receiptFilePaths, 60 * 60) : { data: [] };
+  const receiptUrlMap = new Map((receiptSignedUrls.data ?? []).flatMap((file) => file.path && file.signedUrl ? [[file.path, file.signedUrl] as const] : []));
   const avatarUrl = profileResult.data?.avatar_path
     ? (await supabase.storage.from("avatars").createSignedUrl(profileResult.data.avatar_path, 60 * 60)).data?.signedUrl ?? null
     : null;
@@ -265,6 +277,11 @@ export async function getProjectDetailData({ ownerId, projectId }: { ownerId: st
       amount: toNumber(payment.amount),
       status: payment.status,
       paidAt: payment.paid_at,
+      receiptUrl: payment.receipt_path ? receiptUrlMap.get(payment.receipt_path) ?? null : null,
+      receiptPath: payment.receipt_path,
+      receiptFileName: payment.receipt_file_name,
+      receiptMimeType: payment.receipt_mime_type,
+      receiptFileSize: payment.receipt_file_size,
     })),
     scopeItems: (scopeResult.data ?? []).length > 0 ? (scopeResult.data ?? []).map((item) => ({
       id: item.id,

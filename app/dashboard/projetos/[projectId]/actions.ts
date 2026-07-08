@@ -193,6 +193,8 @@ export async function createMaterialAction(_state: DetailActionState, formData: 
 
   if (!isValidUuid(projectId)) return { success: false, message: "Projeto inválido." };
   if (title.length < 2) return { success: false, message: "Informe um título para o material." };
+  if (kind === "link" && !url) return { success: false, message: "Informe o link do material." };
+  if (kind === "note" && !note) return { success: false, message: "Escreva a anotação do material." };
   if (!(await projectBelongsToUser(projectId, user.id))) return { success: false, message: "Projeto não encontrado." };
 
   const supabase = await createSupabaseServerClient();
@@ -201,8 +203,24 @@ export async function createMaterialAction(_state: DetailActionState, formData: 
   let mimeType: string | null = null;
 
   if (kind === "file" && file instanceof File && file.size > 0) {
-    const allowed = ["application/pdf", "image/png", "image/jpeg", "image/webp", "text/plain"];
-    if (!allowed.includes(file.type)) return { success: false, message: "Arquivo precisa ser PDF, imagem ou TXT." };
+    const allowed = [
+      "application/pdf",
+      "image/png",
+      "image/jpeg",
+      "image/webp",
+      "text/plain",
+      "text/csv",
+      "application/zip",
+      "application/x-zip-compressed",
+      "application/x-rar-compressed",
+      "application/msword",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "application/vnd.ms-excel",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "application/vnd.ms-powerpoint",
+      "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    ];
+    if (!allowed.includes(file.type)) return { success: false, message: "Arquivo precisa ser PDF, imagem, TXT, ZIP ou documento Office." };
     if (file.size > 10 * 1024 * 1024) return { success: false, message: "Arquivo pode ter no máximo 10 MB." };
     const extension = file.name.split(".").pop()?.toLowerCase() || "file";
     filePath = `${user.id}/${projectId}/${crypto.randomUUID()}.${extension}`;
@@ -211,6 +229,7 @@ export async function createMaterialAction(_state: DetailActionState, formData: 
     const upload = await supabase.storage.from("project-materials").upload(filePath, file, { contentType: file.type, upsert: false });
     if (upload.error) return { success: false, message: "Não foi possível enviar o arquivo." };
   }
+  if (kind === "file" && (!(file instanceof File) || file.size <= 0)) return { success: false, message: "Selecione um arquivo para enviar." };
 
   const { error } = await supabase.from("project_materials").insert({ owner_id: user.id, project_id: projectId, kind, title, url: url || null, note: note || null, file_path: filePath, file_size: fileSize, mime_type: mimeType });
   if (error) {
@@ -240,14 +259,48 @@ export async function createPaymentAction(_state: DetailActionState, formData: F
   const description = getValue(formData, "description");
   const amount = getCurrencyValue(getValue(formData, "amount"));
   const dueDate = getValue(formData, "due_date");
+  const receipt = formData.get("receipt");
   if (!isValidUuid(projectId)) return { success: false, message: "Projeto inválido." };
   if (description.length < 2) return { success: false, message: "Informe uma descrição." };
   if (amount <= 0) return { success: false, message: "Informe um valor maior que zero." };
   if (!dueDate) return { success: false, message: "Informe o vencimento." };
   if (!(await projectBelongsToUser(projectId, user.id))) return { success: false, message: "Projeto não encontrado." };
   const supabase = await createSupabaseServerClient();
-  const { error } = await supabase.from("payments").insert({ owner_id: user.id, project_id: projectId, budget_id: isValidUuid(budgetId) ? budgetId : null, description, amount, due_date: dueDate, status: "pending" });
-  if (error) return { success: false, message: "Não foi possível criar o recebimento." };
+  let receiptPath: string | null = null;
+  let receiptFileName: string | null = null;
+  let receiptMimeType: string | null = null;
+  let receiptFileSize: number | null = null;
+
+  if (receipt instanceof File && receipt.size > 0) {
+    const allowed = ["application/pdf", "image/png", "image/jpeg", "image/webp", "text/plain", "text/csv"];
+    if (!allowed.includes(receipt.type)) return { success: false, message: "Comprovante precisa ser PDF, imagem, TXT ou CSV." };
+    if (receipt.size > 10 * 1024 * 1024) return { success: false, message: "Comprovante pode ter no máximo 10 MB." };
+    const extension = receipt.name.split(".").pop()?.toLowerCase() || "file";
+    receiptPath = `${user.id}/${projectId}/${crypto.randomUUID()}.${extension}`;
+    receiptFileName = receipt.name;
+    receiptMimeType = receipt.type;
+    receiptFileSize = receipt.size;
+    const upload = await supabase.storage.from("payment-receipts").upload(receiptPath, receipt, { contentType: receipt.type, upsert: false });
+    if (upload.error) return { success: false, message: "Não foi possível enviar o comprovante." };
+  }
+
+  const { error } = await supabase.from("payments").insert({
+    owner_id: user.id,
+    project_id: projectId,
+    budget_id: isValidUuid(budgetId) ? budgetId : null,
+    description,
+    amount,
+    due_date: dueDate,
+    status: "pending",
+    receipt_path: receiptPath,
+    receipt_file_name: receiptFileName,
+    receipt_mime_type: receiptMimeType,
+    receipt_file_size: receiptFileSize,
+  });
+  if (error) {
+    if (receiptPath) await supabase.storage.from("payment-receipts").remove([receiptPath]);
+    return { success: false, message: "Não foi possível criar o recebimento." };
+  }
   revalidateProject(projectId);
   return { success: true, message: "Recebimento criado." };
 }
