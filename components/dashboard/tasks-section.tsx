@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useMemo, useState, useTransition, type FormEvent } from "react";
+import { useActionState, useEffect, useMemo, useOptimistic, useState, useTransition, type FormEvent } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, CalendarDays, CheckCircle2, MoreHorizontal, Plus, RotateCcw, Search, Trash2, X } from "lucide-react";
@@ -19,7 +19,7 @@ type TasksSectionProps = {
   };
 };
 
-type TaskColumnId = "overdue" | "today" | "upcoming" | "completed";
+type TaskColumnId = "overdue" | "todo" | "in_progress" | "completed" | "paused";
 
 const initialTaskState: TaskActionState = { success: false, message: "" };
 
@@ -70,7 +70,7 @@ function getRelativeDate(task: TaskItem) {
   return dateFormatter.format(new Date(task.scheduledAt));
 }
 
-function TaskMiniChart({ tone }: { tone: "blue" | "red" | "green" | "purple" }) {
+function TaskMiniChart({ tone }: { tone: "blue" | "red" | "green" | "purple" | "slate" }) {
   return (
     <svg viewBox="0 0 90 34" aria-hidden="true" className={`tasks-mini-chart ${tone}`}>
       <path d="M2 25 L15 23 L27 13 L41 18 L53 20 L66 9 L77 16 L88 8" />
@@ -78,7 +78,7 @@ function TaskMiniChart({ tone }: { tone: "blue" | "red" | "green" | "purple" }) 
   );
 }
 
-function TaskMetricCard({ label, value, helper, tone, icon: Icon }: { label: string; value: number; helper: string; tone: "blue" | "red" | "green" | "purple"; icon: LucideIcon }) {
+function TaskMetricCard({ label, value, helper, tone, icon: Icon }: { label: string; value: number; helper: string; tone: "blue" | "red" | "green" | "purple" | "slate"; icon: LucideIcon }) {
   return (
     <article className="tasks-stat-card">
       <span className={`tasks-stat-icon ${tone}`}><Icon size={24} /></span>
@@ -119,7 +119,7 @@ function TaskCard({ task, onToggle, onDelete, onDragStart, isPending }: { task: 
       </div>
 
       <footer>
-        <time className={task.bucket === "overdue" ? "danger" : task.bucket === "today" ? "today" : task.completedAt ? "success" : ""}><CalendarDays size={15} />{getRelativeDate(task)}</time>
+        <time className={task.bucket === "overdue" ? "danger" : task.bucket === "in_progress" ? "today" : task.completedAt ? "success" : ""}><CalendarDays size={15} />{getRelativeDate(task)}</time>
         <em className={kindClass}>{taskKindLabels[task.kind]}</em>
       </footer>
 
@@ -138,7 +138,7 @@ function TaskCard({ task, onToggle, onDelete, onDragStart, isPending }: { task: 
   );
 }
 
-function TaskColumn({ id, title, tone, tasks, onAdd, onToggle, onDelete, onMove, onDragStart, isDragTarget, pendingTaskId }: { id: TaskColumnId; title: string; tone: "red" | "purple" | "blue" | "green"; tasks: TaskItem[]; onAdd: () => void; onToggle: (task: TaskItem) => void; onDelete: (task: TaskItem) => void; onMove: (column: TaskColumnId) => void; onDragStart: (task: TaskItem | null) => void; isDragTarget: boolean; pendingTaskId: string | null }) {
+function TaskColumn({ id, title, tone, tasks, onAdd, onToggle, onDelete, onMove, onDragStart, isDragTarget, pendingTaskId }: { id: TaskColumnId; title: string; tone: "red" | "purple" | "blue" | "green" | "slate"; tasks: TaskItem[]; onAdd: () => void; onToggle: (task: TaskItem) => void; onDelete: (task: TaskItem) => void; onMove: (column: TaskColumnId) => void; onDragStart: (task: TaskItem | null) => void; isDragTarget: boolean; pendingTaskId: string | null }) {
   return (
     <section
       className={`tasks-column ${tone} ${isDragTarget ? "is-drag-target" : ""}`}
@@ -167,9 +167,10 @@ export function TasksSection({ data, filters }: TasksSectionProps) {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [pendingTaskId, setPendingTaskId] = useState<string | null>(null);
   const [draggedTask, setDraggedTask] = useState<TaskItem | null>(null);
+  const [visibleColumns, setVisibleColumns] = useOptimistic(data.columns, (_current, nextColumns: TasksData["columns"]) => nextColumns);
   const [, startTransition] = useTransition();
 
-  const totalVisible = useMemo(() => Object.values(data.columns).reduce((total, tasks) => total + tasks.length, 0), [data.columns]);
+  const totalVisible = useMemo(() => Object.values(visibleColumns).reduce((total, tasks) => total + tasks.length, 0), [visibleColumns]);
 
   const navigate = (updates: Record<string, string | undefined>) => {
     const params = new URLSearchParams(window.location.search);
@@ -214,17 +215,34 @@ export function TasksSection({ data, filters }: TasksSectionProps) {
   };
 
   const handleMove = (column: TaskColumnId) => {
-    if (!draggedTask || draggedTask.bucket === column) {
+    const taskToMove = draggedTask;
+    if (!taskToMove || taskToMove.bucket === column) {
       setDraggedTask(null);
       return;
     }
 
-    setPendingTaskId(draggedTask.id);
+    const previousColumns = visibleColumns;
+    const nextTask: TaskItem = {
+      ...taskToMove,
+      bucket: column,
+      taskStatus: column === "overdue" ? "todo" : column,
+      completedAt: column === "completed" ? new Date().toISOString() : null,
+    };
+    const nextColumns = Object.fromEntries(
+      Object.entries(previousColumns).map(([key, tasks]) => [key, tasks.filter((task) => task.id !== taskToMove.id)]),
+    ) as TasksData["columns"];
+    const targetKey = column === "in_progress" ? "inProgress" : column;
+    nextColumns[targetKey].push(nextTask);
+
+    setVisibleColumns(nextColumns);
+    setPendingTaskId(taskToMove.id);
+    setDraggedTask(null);
+
     startTransition(async () => {
-      const result = await moveTaskToColumnAction(draggedTask.id, column);
+      const result = await moveTaskToColumnAction(taskToMove.id, column);
       setPendingTaskId(null);
-      setDraggedTask(null);
       if (!result.success) {
+        setVisibleColumns(previousColumns);
         showToast({ type: "error", title: "Tarefa não movida", description: result.message });
         return;
       }
@@ -244,10 +262,10 @@ export function TasksSection({ data, filters }: TasksSectionProps) {
       </div>
 
       <section className="tasks-stats" aria-label="Indicadores de tarefas">
-        <TaskMetricCard label="Hoje" value={data.metrics.today} helper="Pendentes para hoje" tone="purple" icon={CalendarDays} />
+        <TaskMetricCard label="A começar" value={data.metrics.todo} helper="Prontas para iniciar" tone="purple" icon={CalendarDays} />
         <TaskMetricCard label="Atrasadas" value={data.metrics.overdue} helper="Precisam de atenção" tone="red" icon={AlertTriangle} />
-        <TaskMetricCard label="Esta semana" value={data.metrics.week} helper="Próximos 7 dias" tone="blue" icon={CalendarDays} />
-        <TaskMetricCard label="Concluídas" value={data.metrics.completed} helper="Histórico geral" tone="green" icon={CheckCircle2} />
+        <TaskMetricCard label="Em andamento" value={data.metrics.inProgress} helper="Em execução" tone="blue" icon={CalendarDays} />
+        <TaskMetricCard label="Concluídas" value={data.metrics.completed} helper={`${data.metrics.paused} paralisadas`} tone="green" icon={CheckCircle2} />
       </section>
 
       <section className="tasks-filters-card" aria-label="Filtros de tarefas">
@@ -268,17 +286,10 @@ export function TasksSection({ data, filters }: TasksSectionProps) {
           <select value={filters.status} onChange={(event) => navigate({ status: event.target.value })}>
             <option value="all">Todos</option>
             <option value="overdue">Atrasadas</option>
-            <option value="today">Hoje</option>
-            <option value="upcoming">Próximas</option>
+            <option value="todo">A começar</option>
+            <option value="in_progress">Em andamento</option>
             <option value="completed">Concluídas</option>
-          </select>
-        </label>
-
-        <label>Período
-          <select value={filters.period} onChange={(event) => navigate({ periodo: event.target.value })}>
-            <option value="week">Esta semana</option>
-            <option value="month">Este mês</option>
-            <option value="all">Todos</option>
+            <option value="paused">Paralisadas</option>
           </select>
         </label>
 
@@ -286,10 +297,11 @@ export function TasksSection({ data, filters }: TasksSectionProps) {
       </section>
 
       <div className="tasks-board" aria-label={`${totalVisible} tarefas encontradas`}>
-        <TaskColumn id="overdue" title="Atrasadas" tone="red" tasks={data.columns.overdue} onAdd={() => setIsCreateOpen(true)} onToggle={handleToggle} onDelete={handleDelete} onMove={handleMove} onDragStart={setDraggedTask} isDragTarget={draggedTask !== null && draggedTask.bucket !== "overdue"} pendingTaskId={pendingTaskId} />
-        <TaskColumn id="today" title="Hoje" tone="purple" tasks={data.columns.today} onAdd={() => setIsCreateOpen(true)} onToggle={handleToggle} onDelete={handleDelete} onMove={handleMove} onDragStart={setDraggedTask} isDragTarget={draggedTask !== null && draggedTask.bucket !== "today"} pendingTaskId={pendingTaskId} />
-        <TaskColumn id="upcoming" title="Próximas" tone="blue" tasks={data.columns.upcoming} onAdd={() => setIsCreateOpen(true)} onToggle={handleToggle} onDelete={handleDelete} onMove={handleMove} onDragStart={setDraggedTask} isDragTarget={draggedTask !== null && draggedTask.bucket !== "upcoming"} pendingTaskId={pendingTaskId} />
-        <TaskColumn id="completed" title="Concluídas" tone="green" tasks={data.columns.completed} onAdd={() => setIsCreateOpen(true)} onToggle={handleToggle} onDelete={handleDelete} onMove={handleMove} onDragStart={setDraggedTask} isDragTarget={draggedTask !== null && draggedTask.bucket !== "completed"} pendingTaskId={pendingTaskId} />
+        <TaskColumn id="overdue" title="Atrasadas" tone="red" tasks={visibleColumns.overdue} onAdd={() => setIsCreateOpen(true)} onToggle={handleToggle} onDelete={handleDelete} onMove={handleMove} onDragStart={setDraggedTask} isDragTarget={draggedTask !== null && draggedTask.bucket !== "overdue"} pendingTaskId={pendingTaskId} />
+        <TaskColumn id="todo" title="A começar" tone="purple" tasks={visibleColumns.todo} onAdd={() => setIsCreateOpen(true)} onToggle={handleToggle} onDelete={handleDelete} onMove={handleMove} onDragStart={setDraggedTask} isDragTarget={draggedTask !== null && draggedTask.bucket !== "todo"} pendingTaskId={pendingTaskId} />
+        <TaskColumn id="in_progress" title="Em andamento" tone="blue" tasks={visibleColumns.inProgress} onAdd={() => setIsCreateOpen(true)} onToggle={handleToggle} onDelete={handleDelete} onMove={handleMove} onDragStart={setDraggedTask} isDragTarget={draggedTask !== null && draggedTask.bucket !== "in_progress"} pendingTaskId={pendingTaskId} />
+        <TaskColumn id="completed" title="Concluídas" tone="green" tasks={visibleColumns.completed} onAdd={() => setIsCreateOpen(true)} onToggle={handleToggle} onDelete={handleDelete} onMove={handleMove} onDragStart={setDraggedTask} isDragTarget={draggedTask !== null && draggedTask.bucket !== "completed"} pendingTaskId={pendingTaskId} />
+        <TaskColumn id="paused" title="Paralisadas" tone="slate" tasks={visibleColumns.paused} onAdd={() => setIsCreateOpen(true)} onToggle={handleToggle} onDelete={handleDelete} onMove={handleMove} onDragStart={setDraggedTask} isDragTarget={draggedTask !== null && draggedTask.bucket !== "paused"} pendingTaskId={pendingTaskId} />
       </div>
 
       {isCreateOpen && <CreateTaskModal projects={data.projects} onClose={() => setIsCreateOpen(false)} />}

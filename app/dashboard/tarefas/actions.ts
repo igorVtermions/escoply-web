@@ -16,7 +16,7 @@ function getValue(formData: FormData, name: string) {
 }
 
 function isValidUuid(value: string) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{12}$/i.test(value);
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
 
 function getKind(value: string): TaskKind {
@@ -51,6 +51,15 @@ function getTimeInSaoPaulo(value: string) {
   return formatter.format(new Date(value));
 }
 
+function getTaskStatusPayload(column: "overdue" | "todo" | "in_progress" | "paused" | "completed", previousScheduledAt: string) {
+  const previousTime = getTimeInSaoPaulo(previousScheduledAt);
+  if (column === "completed") return { task_status: "completed", completed_at: new Date().toISOString() };
+  if (column === "overdue") {
+    return { task_status: "todo", completed_at: null, scheduled_at: `${getDateInSaoPaulo(-1)}T${previousTime}:00-03:00` };
+  }
+  return { task_status: column, completed_at: null, scheduled_at: `${getDateInSaoPaulo(0)}T${previousTime}:00-03:00` };
+}
+
 export async function createTaskAction(_state: TaskActionState, formData: FormData): Promise<TaskActionState> {
   const user = await requireUser();
   const title = getValue(formData, "title");
@@ -74,6 +83,7 @@ export async function createTaskAction(_state: TaskActionState, formData: FormDa
     project_id: projectId || null,
     title,
     kind,
+    task_status: "todo",
     scheduled_at: `${scheduledDate}T${scheduledTime}:00-03:00`,
   });
 
@@ -90,7 +100,7 @@ export async function toggleTaskCompletedAction(taskId: string): Promise<TaskAct
   const { data, error: readError } = await supabase.from("reminders").select("completed_at").eq("owner_id", user.id).eq("id", taskId).maybeSingle<{ completed_at: string | null }>();
   if (readError || !data) return { success: false, message: "Tarefa não encontrada." };
 
-  const { error } = await supabase.from("reminders").update({ completed_at: data.completed_at ? null : new Date().toISOString() }).eq("owner_id", user.id).eq("id", taskId);
+  const { error } = await supabase.from("reminders").update(data.completed_at ? { completed_at: null, task_status: "todo" } : { completed_at: new Date().toISOString(), task_status: "completed" }).eq("owner_id", user.id).eq("id", taskId);
   if (error) return { success: false, message: "Não foi possível atualizar a tarefa." };
 
   revalidateTasks();
@@ -109,7 +119,7 @@ export async function deleteTaskAction(taskId: string): Promise<TaskActionState>
   return { success: true, message: "Tarefa excluída." };
 }
 
-export async function moveTaskToColumnAction(taskId: string, column: "overdue" | "today" | "upcoming" | "completed"): Promise<TaskActionState> {
+export async function moveTaskToColumnAction(taskId: string, column: "overdue" | "todo" | "in_progress" | "paused" | "completed"): Promise<TaskActionState> {
   const user = await requireUser();
   if (!isValidUuid(taskId)) return { success: false, message: "Tarefa inválida." };
 
@@ -123,13 +133,7 @@ export async function moveTaskToColumnAction(taskId: string, column: "overdue" |
 
   if (readError || !data) return { success: false, message: "Tarefa não encontrada." };
 
-  const previousTime = getTimeInSaoPaulo(data.scheduled_at);
-  const payload = column === "completed"
-    ? { completed_at: new Date().toISOString() }
-    : {
-        completed_at: null,
-        scheduled_at: `${getDateInSaoPaulo(column === "overdue" ? -1 : column === "today" ? 0 : 1)}T${previousTime}:00-03:00`,
-      };
+  const payload = getTaskStatusPayload(column, data.scheduled_at);
 
   const { error } = await supabase.from("reminders").update(payload).eq("owner_id", user.id).eq("id", taskId);
   if (error) return { success: false, message: "Não foi possível mover a tarefa." };

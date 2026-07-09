@@ -11,6 +11,10 @@ export type DashboardReminder = {
   clientName: string | null;
 };
 
+export type DashboardNotification = DashboardReminder & {
+  source: "task";
+};
+
 export type DashboardDeadline = {
   id: string;
   name: string;
@@ -61,6 +65,7 @@ export type DashboardData = {
     receivableAmount: number;
   };
   reminders: DashboardReminder[];
+  notifications: DashboardNotification[];
   deadlines: DashboardDeadline[];
   budgets: DashboardBudget[];
   obligations: DashboardObligation[];
@@ -73,6 +78,8 @@ type ReminderRow = {
   scheduled_at: string;
   projects: { name: string; clients: { name: string } | null } | null;
 };
+
+type NotificationRow = ReminderRow;
 
 type DeadlineRow = {
   id: string;
@@ -157,6 +164,7 @@ export async function getDashboardData(ownerId: string, selectedDate: string): P
     deadlineCountResult,
     paymentsResult,
     remindersResult,
+    notificationsResult,
     deadlinesResult,
     budgetsResult,
     obligationsResult,
@@ -166,12 +174,13 @@ export async function getDashboardData(ownerId: string, selectedDate: string): P
     supabase.from("projects").select("id", { count: "exact", head: true }).eq("owner_id", ownerId).not("deadline", "is", null).gte("deadline", dates.today).lt("deadline", dates.nextThirtyDays).neq("status", "completed").neq("status", "archived"),
     supabase.from("payments").select("amount").eq("owner_id", ownerId).in("status", ["pending", "overdue"]).overrideTypes<PaymentRow[]>(),
     supabase.from("reminders").select("id, title, kind, scheduled_at, projects(name, clients(name))").eq("owner_id", ownerId).is("completed_at", null).gte("scheduled_at", `${dates.today}T00:00:00-03:00`).lt("scheduled_at", `${dates.tomorrow}T00:00:00-03:00`).order("scheduled_at").limit(5).overrideTypes<ReminderRow[]>(),
+    supabase.from("reminders").select("id, title, kind, scheduled_at, projects(name, clients(name))").eq("owner_id", ownerId).is("completed_at", null).is("notification_read_at", null).lt("scheduled_at", `${dates.tomorrow}T00:00:00-03:00`).order("scheduled_at").limit(8).overrideTypes<NotificationRow[]>(),
     supabase.from("projects").select("id, name, progress, deadline, clients(id, name, company_name, email, phone, whatsapp, website, notes, logo_path)").eq("owner_id", ownerId).not("deadline", "is", null).gte("deadline", dates.today).neq("status", "completed").neq("status", "archived").order("deadline").limit(5).overrideTypes<DeadlineRow[]>(),
     supabase.from("budgets").select("id, amount, status, valid_until, payment_condition, projects(id, name, deadline, progress, clients(name, company_name, email, phone, whatsapp, logo_path))").eq("owner_id", ownerId).in("status", ["draft", "sent"]).order("created_at", { ascending: false }).limit(5).overrideTypes<BudgetRow[]>(),
     supabase.from("obligations").select("id, title, type, due_date, status").eq("owner_id", ownerId).gte("due_date", dates.monthStart).lt("due_date", dates.nextMonthStart).order("due_date").limit(6).overrideTypes<ObligationRow[]>(),
   ]);
 
-  const results = [clientsResult, projectsResult, deadlineCountResult, paymentsResult, remindersResult, deadlinesResult, budgetsResult, obligationsResult];
+  const results = [clientsResult, projectsResult, deadlineCountResult, paymentsResult, remindersResult, notificationsResult, deadlinesResult, budgetsResult, obligationsResult];
   const failedResult = results.find((result) => result.error);
   if (failedResult?.error) throw failedResult.error;
 
@@ -198,6 +207,15 @@ export async function getDashboardData(ownerId: string, selectedDate: string): P
       scheduledAt: reminder.scheduled_at,
       projectName: reminder.projects?.name ?? null,
       clientName: reminder.projects?.clients?.name ?? null,
+    })),
+    notifications: (notificationsResult.data ?? []).map((notification) => ({
+      id: notification.id,
+      title: notification.title,
+      kind: notification.kind,
+      scheduledAt: notification.scheduled_at,
+      projectName: notification.projects?.name ?? null,
+      clientName: notification.projects?.clients?.name ?? null,
+      source: "task",
     })),
     deadlines: (deadlinesResult.data ?? []).map((project) => ({
       id: project.id,

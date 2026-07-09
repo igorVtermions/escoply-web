@@ -14,9 +14,9 @@ export default async function TasksPage({ searchParams }: { searchParams: Promis
   const rawKind = getString(query.tipo);
   const kind: TaskKind | "all" = ["meeting", "action", "review", "delivery", "follow_up", "charge", "other"].includes(rawKind) ? rawKind as TaskKind : "all";
   const rawStatus = getString(query.status);
-  const status: TaskStatusFilter = ["overdue", "today", "upcoming", "completed"].includes(rawStatus) ? rawStatus as TaskStatusFilter : "all";
+  const status: TaskStatusFilter = ["overdue", "todo", "in_progress", "paused", "completed"].includes(rawStatus) ? rawStatus as TaskStatusFilter : "all";
   const rawPeriod = getString(query.periodo);
-  const period: TaskPeriodFilter = ["all", "week", "month"].includes(rawPeriod) ? rawPeriod as TaskPeriodFilter : "week";
+  const period: TaskPeriodFilter = ["all", "week", "month"].includes(rawPeriod) ? rawPeriod as TaskPeriodFilter : "all";
 
   const tasksData = await getTasksData({ ownerId: user.id, search, kind, status, period });
   return <TasksSection data={tasksData} filters={{ search, kind, status, period }} />;

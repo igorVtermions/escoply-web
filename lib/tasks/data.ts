@@ -3,7 +3,8 @@ import "server-only";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export type TaskKind = "meeting" | "action" | "review" | "delivery" | "follow_up" | "charge" | "other";
-export type TaskStatusFilter = "all" | "overdue" | "today" | "upcoming" | "completed";
+export type TaskKanbanStatus = "todo" | "in_progress" | "paused" | "completed";
+export type TaskStatusFilter = "all" | "overdue" | TaskKanbanStatus;
 export type TaskPeriodFilter = "all" | "week" | "month";
 
 export type TaskItem = {
@@ -12,6 +13,7 @@ export type TaskItem = {
   kind: TaskKind;
   scheduledAt: string;
   completedAt: string | null;
+  taskStatus: TaskKanbanStatus;
   projectId: string | null;
   projectName: string | null;
   clientName: string | null;
@@ -26,16 +28,19 @@ export type TaskProjectOption = {
 
 export type TasksData = {
   metrics: {
-    today: number;
+    todo: number;
+    inProgress: number;
     overdue: number;
     week: number;
     completed: number;
+    paused: number;
   };
   columns: {
     overdue: TaskItem[];
-    today: TaskItem[];
-    upcoming: TaskItem[];
+    todo: TaskItem[];
+    inProgress: TaskItem[];
     completed: TaskItem[];
+    paused: TaskItem[];
   };
   projects: TaskProjectOption[];
 };
@@ -46,6 +51,7 @@ type ReminderRow = {
   kind: TaskKind;
   scheduled_at: string;
   completed_at: string | null;
+  task_status: TaskKanbanStatus | null;
   project_id: string | null;
   projects: { id: string; name: string; clients: { name: string } | null } | null;
 };
@@ -85,11 +91,13 @@ function getTaskDateKey(scheduledAt: string) {
 }
 
 function getBucket(row: ReminderRow, today: string): TaskItem["bucket"] {
-  if (row.completed_at) return "completed";
+  const status = row.completed_at ? "completed" : row.task_status ?? "todo";
+  if (status === "completed") return "completed";
+  if (status === "paused") return "paused";
+  if (status === "in_progress") return "in_progress";
   const taskDate = getTaskDateKey(row.scheduled_at);
   if (taskDate < today) return "overdue";
-  if (taskDate === today) return "today";
-  return "upcoming";
+  return "todo";
 }
 
 function isInPeriod(taskDate: string, today: string, period: TaskPeriodFilter) {
@@ -118,7 +126,7 @@ export async function getTasksData({
   const [remindersResult, projectsResult] = await Promise.all([
     supabase
       .from("reminders")
-      .select("id, title, kind, scheduled_at, completed_at, project_id, projects(id, name, clients(name))")
+      .select("id, title, kind, scheduled_at, completed_at, task_status, project_id, projects(id, name, clients(name))")
       .eq("owner_id", ownerId)
       .order("scheduled_at", { ascending: true })
       .limit(300)
@@ -141,6 +149,7 @@ export async function getTasksData({
     kind: row.kind,
     scheduledAt: row.scheduled_at,
     completedAt: row.completed_at,
+    taskStatus: row.completed_at ? "completed" : row.task_status ?? "todo",
     projectId: row.project_id,
     projectName: row.projects?.name ?? null,
     clientName: row.projects?.clients?.name ?? null,
@@ -153,22 +162,25 @@ export async function getTasksData({
     const matchesSearch = !normalizedSearch || [task.title, task.projectName, task.clientName].filter(Boolean).some((value) => value?.toLowerCase().includes(normalizedSearch));
     const matchesKind = kind === "all" || task.kind === kind;
     const matchesStatus = status === "all" || task.bucket === status;
-    const matchesPeriod = task.bucket === "overdue" || task.bucket === "completed" || isInPeriod(taskDate, today, period);
+    const matchesPeriod = task.bucket === "overdue" || task.bucket === "completed" || task.bucket === "paused" || isInPeriod(taskDate, today, period);
     return matchesSearch && matchesKind && matchesStatus && matchesPeriod;
   });
 
   return {
     metrics: {
-      today: allTasks.filter((task) => task.bucket === "today").length,
+      todo: allTasks.filter((task) => task.bucket === "todo").length,
+      inProgress: allTasks.filter((task) => task.bucket === "in_progress").length,
       overdue: allTasks.filter((task) => task.bucket === "overdue").length,
       week: allTasks.filter((task) => !task.completedAt && getTaskDateKey(task.scheduledAt) >= today && getTaskDateKey(task.scheduledAt) < nextWeek).length,
       completed: allTasks.filter((task) => task.bucket === "completed").length,
+      paused: allTasks.filter((task) => task.bucket === "paused").length,
     },
     columns: {
       overdue: filteredTasks.filter((task) => task.bucket === "overdue"),
-      today: filteredTasks.filter((task) => task.bucket === "today"),
-      upcoming: filteredTasks.filter((task) => task.bucket === "upcoming"),
+      todo: filteredTasks.filter((task) => task.bucket === "todo"),
+      inProgress: filteredTasks.filter((task) => task.bucket === "in_progress"),
       completed: filteredTasks.filter((task) => task.bucket === "completed"),
+      paused: filteredTasks.filter((task) => task.bucket === "paused"),
     },
     projects: (projectsResult.data ?? []).map((project) => ({
       id: project.id,

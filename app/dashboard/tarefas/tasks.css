@@ -82,6 +82,7 @@
 .tasks-stat-icon.blue { color: #2563eb; background: #e8f1ff; }
 .tasks-stat-icon.red { color: #ef4444; background: #feecec; }
 .tasks-stat-icon.green { color: #16a34a; background: #e4f7ea; }
+.tasks-stat-icon.slate { color: #475569; background: #f1f5f9; }
 
 .tasks-stat-card p {
   color: #475569;
@@ -120,10 +121,11 @@
 .tasks-mini-chart.blue path { stroke: #2563eb; }
 .tasks-mini-chart.red path { stroke: #ef4444; }
 .tasks-mini-chart.green path { stroke: #22c55e; }
+.tasks-mini-chart.slate path { stroke: #64748b; }
 
 .tasks-filters-card {
   display: grid;
-  grid-template-columns: minmax(16rem, 1.4fr) repeat(3, minmax(10rem, .7fr)) auto;
+  grid-template-columns: minmax(16rem, 1.4fr) repeat(2, minmax(10rem, .7fr)) auto;
   gap: .75rem;
   align-items: center;
   margin-top: 1.35rem;
@@ -197,7 +199,7 @@
 
 .tasks-board {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 1rem;
   margin-top: 1rem;
 }
@@ -242,6 +244,7 @@
 .tasks-column.purple > header::before { background: #7c3aed; }
 .tasks-column.blue > header::before { background: #2563eb; }
 .tasks-column.green > header::before { background: #22c55e; }
+.tasks-column.slate > header::before { background: #64748b; }
 
 .tasks-column h2 {
   color: #071542;
@@ -263,6 +266,7 @@
 .tasks-column.purple > header span { color: #7c3aed; background: #f0eaff; }
 .tasks-column.blue > header span { color: #2563eb; background: #e8f1ff; }
 .tasks-column.green > header span { color: #16a34a; background: #e4f7ea; }
+.tasks-column.slate > header span { color: #475569; background: #f1f5f9; }
 
 .tasks-column-list {
   display: grid;
@@ -271,6 +275,7 @@
   min-height: 0;
   flex: 1;
   padding: .85rem;
+  transition: background-color 220ms ease;
 }
 
 .tasks-column-list > p {
@@ -293,7 +298,8 @@
   background: #fff;
   box-shadow: 0 14px 30px -28px rgba(4, 19, 66, .42);
   cursor: grab;
-  transition: border-color 220ms ease, box-shadow 220ms ease, transform 220ms ease;
+  animation: task-card-enter 220ms var(--ease-out-smooth) both;
+  transition: opacity 180ms ease, border-color 220ms ease, box-shadow 220ms ease, transform 220ms ease;
 }
 
 .task-card:hover {
@@ -307,8 +313,20 @@
 }
 
 .task-card.is-moving {
-  opacity: .55;
+  opacity: .68;
   pointer-events: none;
+  transform: scale(.985);
+}
+
+@keyframes task-card-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .task-card.is-completed strong {

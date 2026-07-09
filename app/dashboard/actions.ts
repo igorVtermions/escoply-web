@@ -22,23 +22,22 @@ export async function markReminderSeenAction(reminderId: string): Promise<Remind
   const user = await requireUser();
 
   if (!isValidUuid(reminderId)) {
-    return { success: false, message: "Lembrete inválido." };
+    return { success: false, message: "Notificação inválida." };
   }
 
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase
     .from("reminders")
-    .update({ completed_at: new Date().toISOString() })
+    .update({ notification_read_at: new Date().toISOString() })
     .eq("owner_id", user.id)
-    .eq("id", reminderId)
-    .is("completed_at", null);
+    .eq("id", reminderId);
 
   if (error) {
-    return { success: false, message: "Não foi possível marcar o lembrete como visto." };
+    return { success: false, message: "Não foi possível marcar a notificação como lida." };
   }
 
   revalidatePath("/dashboard");
-  return { success: true, message: "Lembrete marcado como visto." };
+  return { success: true, message: "Notificação marcada como lida." };
 }
 
 function getValue(formData: FormData, name: string) {
