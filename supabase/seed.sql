@@ -1,0 +1,2 @@
+-- No seed data is required for the authentication foundation.
+-- Add development-only records here as the product schema grows.

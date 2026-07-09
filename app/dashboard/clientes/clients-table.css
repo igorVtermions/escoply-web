@@ -1,0 +1,50 @@
+.clients-table {
+  overflow-x: hidden;
+}
+
+.clients-table-head,
+.clients-table-row {
+  width: 100%;
+  min-width: 0;
+  grid-template-columns:
+    minmax(0, 1.25fr)
+    minmax(0, .9fr)
+    minmax(0, 1.3fr)
+    minmax(5.5rem, .65fr)
+    minmax(4.5rem, .65fr)
+    minmax(0, .9fr)
+    1.5rem;
+}
+
+.clients-table-head > span,
+.clients-table-row > span {
+  min-width: 0;
+}
+
+@media (max-width: 1050px) {
+  .clients-table-head,
+  .clients-table-row {
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.25fr) minmax(4.5rem, .65fr) minmax(0, .9fr) 1.5rem;
+  }
+
+  .clients-table-head > :nth-child(2),
+  .clients-table-row > :nth-child(2),
+  .clients-table-head > :nth-child(4),
+  .clients-table-row > :nth-child(4) {
+    display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .clients-table-head,
+  .clients-table-row {
+    grid-template-columns: minmax(0, 1fr) 5rem 1.5rem;
+  }
+
+  .clients-table-head > :nth-child(3),
+  .clients-table-row > :nth-child(3),
+  .clients-table-head > :nth-child(6),
+  .clients-table-row > :nth-child(6) {
+    display: none;
+  }
+}

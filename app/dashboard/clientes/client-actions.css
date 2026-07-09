@@ -1,0 +1,21 @@
+.clients-table-row { cursor: pointer; }
+.clients-table-row:focus-visible { outline: 2px solid #8b5cf6; outline-offset: -2px; }
+.client-actions-cell { display: grid; place-items: center; }
+.client-actions-cell button { display:grid;width:2rem;height:2rem;place-items:center;border-radius:.5rem;color:#475569;transition:color 200ms ease,background-color 200ms ease; }
+.client-actions-cell button:hover,.client-actions-cell button:focus-visible { color:#6d28d9;background:#ede9fe; }
+.client-actions-dismiss { position:fixed;inset:0;z-index:279;cursor:default; }
+.client-actions-menu { position:fixed;z-index:280;display:grid;width:11.5rem;padding:.4rem;border:1px solid #e2e8f0;border-radius:.75rem;background:#fff;box-shadow:0 18px 45px -20px rgba(4,19,66,.42);animation:auth-panel-enter 220ms ease both; }
+.client-actions-menu button { display:flex;min-height:2.5rem;align-items:center;gap:.55rem;padding:0 .7rem;border-radius:.55rem;color:#334155;font-size:.72rem;font-weight:700;text-align:left;transition:background-color 200ms ease,color 200ms ease; }
+.client-actions-menu button:hover { color:#4f46e5;background:#f5f3ff; }
+.client-actions-menu button.danger { color:#dc2626; }
+.client-actions-menu button.danger:hover { background:#fef2f2; }
+.client-edit-modal { width:min(100%,34rem); }
+.client-delete-modal { width:min(100%,29rem);padding:2rem;border:1px solid rgba(255,255,255,.65);border-radius:1.35rem;background:#fff;text-align:center;box-shadow:0 34px 100px -24px rgba(4,19,66,.68);animation:auth-modal-in 440ms var(--ease-out-smooth) both; }
+.client-delete-icon { display:grid;width:3.6rem;height:3.6rem;margin:0 auto 1rem;place-items:center;border-radius:1rem;color:#dc2626;background:#fef2f2; }
+.client-delete-modal h2 { color:#0f172a;font-size:1.35rem;font-weight:800;letter-spacing:-.025em; }
+.client-delete-modal p { margin-top:.65rem;color:#64748b;font-size:.78rem;line-height:1.65; }
+.client-delete-modal>div:last-child { display:grid;grid-template-columns:1fr 1fr;gap:.7rem;margin-top:1.35rem; }
+.client-delete-modal button { min-height:2.85rem;padding:0 .8rem;border:1px solid #dfe5ef;border-radius:.7rem;color:#071e63;font-size:.75rem;font-weight:800; }
+.client-delete-modal button:last-child { color:#fff;border-color:#dc2626;background:#dc2626; }
+.client-delete-modal button:disabled { cursor:not-allowed;opacity:.55; }
+@media(max-width:520px){.client-delete-modal{padding:1.4rem}.client-delete-modal>div:last-child{grid-template-columns:1fr}}
