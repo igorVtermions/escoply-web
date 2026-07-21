@@ -3,7 +3,7 @@
 import { useActionState, useEffect, useMemo, useOptimistic, useState, useTransition, type FormEvent } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, CalendarDays, CheckCircle2, MoreHorizontal, Plus, RotateCcw, Search, Trash2, X } from "lucide-react";
+import { AlertTriangle, CalendarDays, CheckCircle2, Clock3, ExternalLink, MoreHorizontal, Plus, RotateCcw, Search, Trash2, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { createTaskAction, deleteTaskAction, moveTaskToColumnAction, toggleTaskCompletedAction, type TaskActionState } from "@/app/dashboard/tarefas/actions";
 import { showToast } from "@/components/ui/toast-provider";
@@ -17,6 +17,9 @@ type TasksSectionProps = {
     status: TaskStatusFilter;
     period: TaskPeriodFilter;
   };
+  basePath?: string;
+  title?: string;
+  description?: string;
 };
 
 type TaskColumnId = "overdue" | "todo" | "in_progress" | "completed" | "paused";
@@ -44,6 +47,7 @@ const taskKindClasses: Record<TaskKind, string> = {
 };
 
 const dateFormatter = new Intl.DateTimeFormat("pt-BR", { weekday: "short", day: "2-digit", month: "short", timeZone: "America/Sao_Paulo" });
+const fullDateFormatter = new Intl.DateTimeFormat("pt-BR", { weekday: "long", day: "2-digit", month: "long", year: "numeric", timeZone: "America/Sao_Paulo" });
 const timeFormatter = new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" });
 
 function getTodayKey() {
@@ -70,6 +74,18 @@ function getRelativeDate(task: TaskItem) {
   return dateFormatter.format(new Date(task.scheduledAt));
 }
 
+function getColumnLabel(column: TaskColumnId) {
+  if (column === "overdue") return "Atrasada";
+  if (column === "todo") return "A começar";
+  if (column === "in_progress") return "Em andamento";
+  if (column === "completed") return "Concluída";
+  return "Paralisada";
+}
+
+function getFullDate(task: TaskItem) {
+  return fullDateFormatter.format(new Date(task.scheduledAt));
+}
+
 function TaskMiniChart({ tone }: { tone: "blue" | "red" | "green" | "purple" | "slate" }) {
   return (
     <svg viewBox="0 0 90 34" aria-hidden="true" className={`tasks-mini-chart ${tone}`}>
@@ -92,7 +108,7 @@ function TaskMetricCard({ label, value, helper, tone, icon: Icon }: { label: str
   );
 }
 
-function TaskCard({ task, onToggle, onDelete, onDragStart, isPending }: { task: TaskItem; onToggle: (task: TaskItem) => void; onDelete: (task: TaskItem) => void; onDragStart: (task: TaskItem | null) => void; isPending: boolean }) {
+function TaskCard({ task, onOpen, onToggle, onDelete, onDragStart, isPending }: { task: TaskItem; onOpen: (task: TaskItem) => void; onToggle: (task: TaskItem) => void; onDelete: (task: TaskItem) => void; onDragStart: (task: TaskItem | null) => void; isPending: boolean }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const kindClass = taskKindClasses[task.kind] ?? "slate";
 
@@ -100,6 +116,7 @@ function TaskCard({ task, onToggle, onDelete, onDragStart, isPending }: { task: 
     <article
       className={`task-card ${task.completedAt ? "is-completed" : ""} ${isPending ? "is-moving" : ""}`}
       draggable={!isPending}
+      onClick={() => onOpen(task)}
       onDragStart={(event) => {
         event.dataTransfer.effectAllowed = "move";
         event.dataTransfer.setData("text/plain", task.id);
@@ -108,14 +125,14 @@ function TaskCard({ task, onToggle, onDelete, onDragStart, isPending }: { task: 
       onDragEnd={() => onDragStart(null)}
     >
       <div className="task-card-main">
-        <button type="button" className="task-check" disabled={isPending} onClick={() => onToggle(task)} aria-label={task.completedAt ? "Reabrir tarefa" : "Concluir tarefa"}>
+        <button type="button" className="task-check" disabled={isPending} onClick={(event) => { event.stopPropagation(); onToggle(task); }} aria-label={task.completedAt ? "Reabrir tarefa" : "Concluir tarefa"}>
           {task.completedAt && <CheckCircle2 size={16} />}
         </button>
         <div>
           <strong>{task.title}</strong>
           <span>{[task.clientName, task.projectName].filter(Boolean).join(" · ") || "Tarefa geral"}</span>
         </div>
-        <button type="button" className="task-menu-button" onClick={() => setIsMenuOpen((current) => !current)} aria-label="Abrir ações"><MoreHorizontal size={18} /></button>
+        <button type="button" className="task-menu-button" onClick={(event) => { event.stopPropagation(); setIsMenuOpen((current) => !current); }} aria-label="Abrir ações"><MoreHorizontal size={18} /></button>
       </div>
 
       <footer>
@@ -124,7 +141,10 @@ function TaskCard({ task, onToggle, onDelete, onDragStart, isPending }: { task: 
       </footer>
 
       {isMenuOpen && (
-        <div className="task-card-menu">
+        <div className="task-card-menu" onClick={(event) => event.stopPropagation()}>
+          <button type="button" onClick={() => { setIsMenuOpen(false); onOpen(task); }} disabled={isPending}>
+            <ExternalLink size={15} /> Ver detalhes
+          </button>
           <button type="button" onClick={() => { setIsMenuOpen(false); onToggle(task); }} disabled={isPending}>
             {task.completedAt ? <RotateCcw size={15} /> : <CheckCircle2 size={15} />}
             {task.completedAt ? "Reabrir" : "Concluir"}
@@ -138,7 +158,7 @@ function TaskCard({ task, onToggle, onDelete, onDragStart, isPending }: { task: 
   );
 }
 
-function TaskColumn({ id, title, tone, tasks, onAdd, onToggle, onDelete, onMove, onDragStart, isDragTarget, pendingTaskId }: { id: TaskColumnId; title: string; tone: "red" | "purple" | "blue" | "green" | "slate"; tasks: TaskItem[]; onAdd: () => void; onToggle: (task: TaskItem) => void; onDelete: (task: TaskItem) => void; onMove: (column: TaskColumnId) => void; onDragStart: (task: TaskItem | null) => void; isDragTarget: boolean; pendingTaskId: string | null }) {
+function TaskColumn({ id, title, tone, tasks, onAdd, onOpen, onToggle, onDelete, onMove, onDragStart, isDragTarget, pendingTaskId }: { id: TaskColumnId; title: string; tone: "red" | "purple" | "blue" | "green" | "slate"; tasks: TaskItem[]; onAdd: () => void; onOpen: (task: TaskItem) => void; onToggle: (task: TaskItem) => void; onDelete: (task: TaskItem) => void; onMove: (column: TaskColumnId) => void; onDragStart: (task: TaskItem | null) => void; isDragTarget: boolean; pendingTaskId: string | null }) {
   return (
     <section
       className={`tasks-column ${tone} ${isDragTarget ? "is-drag-target" : ""}`}
@@ -154,17 +174,73 @@ function TaskColumn({ id, title, tone, tasks, onAdd, onToggle, onDelete, onMove,
       <header><h2>{title}</h2><span>{tasks.length}</span></header>
       <div className="tasks-column-list">
         {tasks.length === 0 && <p>Nenhuma tarefa nesta coluna.</p>}
-        {tasks.map((task) => <TaskCard key={task.id} task={task} onToggle={onToggle} onDelete={onDelete} onDragStart={onDragStart} isPending={pendingTaskId === task.id} />)}
+        {tasks.map((task) => <TaskCard key={task.id} task={task} onOpen={onOpen} onToggle={onToggle} onDelete={onDelete} onDragStart={onDragStart} isPending={pendingTaskId === task.id} />)}
       </div>
       <button type="button" className="tasks-column-add" onClick={onAdd}><Plus size={16} /> Adicionar tarefa</button>
     </section>
   );
 }
 
-export function TasksSection({ data, filters }: TasksSectionProps) {
+function TaskDetailModal({ task, isPending, onClose, onToggle, onDelete }: { task: TaskItem; isPending: boolean; onClose: () => void; onToggle: (task: TaskItem) => void; onDelete: (task: TaskItem) => void }) {
+  const projectHref = task.projectId ? `/dashboard/projetos/${task.projectId}` : null;
+
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !isPending) onClose();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isPending, onClose]);
+
+  return createPortal(
+    <div className="tasks-modal-overlay" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !isPending) onClose(); }}>
+      <section className="tasks-detail-modal" role="dialog" aria-modal="true" aria-labelledby="task-detail-title">
+        <button type="button" className="tasks-modal-close" onClick={onClose} disabled={isPending} aria-label="Fechar"><X size={22} /></button>
+        <div className="tasks-detail-hero">
+          <span className={`tasks-detail-icon ${taskKindClasses[task.kind] ?? "slate"}`}><Clock3 size={22} /></span>
+          <div>
+            <small>{taskKindLabels[task.kind]}</small>
+            <h2 id="task-detail-title">{task.title}</h2>
+            <p>{[task.clientName, task.projectName].filter(Boolean).join(" · ") || "Tarefa geral sem projeto vinculado."}</p>
+          </div>
+        </div>
+
+        <div className="tasks-detail-status-row">
+          <span className={task.bucket}>{getColumnLabel(task.bucket)}</span>
+          <span>{getRelativeDate(task)}</span>
+        </div>
+
+        <section className="tasks-detail-grid" aria-label="Detalhes da tarefa">
+          <div><small>Data</small><strong>{getFullDate(task)}</strong></div>
+          <div><small>Horário</small><strong>{timeFormatter.format(new Date(task.scheduledAt))}</strong></div>
+          <div><small>Cliente</small><strong>{task.clientName ?? "Não vinculado"}</strong></div>
+          <div><small>Projeto</small><strong>{task.projectName ?? "Não vinculado"}</strong></div>
+          <div><small>Status Kanban</small><strong>{getColumnLabel(task.bucket)}</strong></div>
+          <div><small>Conclusão</small><strong>{task.completedAt ? fullDateFormatter.format(new Date(task.completedAt)) : "Ainda não concluída"}</strong></div>
+        </section>
+
+        <footer className="tasks-detail-actions">
+          <button type="button" onClick={onClose} disabled={isPending}>Fechar</button>
+          {projectHref && <a href={projectHref}><ExternalLink size={16} /> Abrir projeto</a>}
+          <button type="button" onClick={() => onToggle(task)} disabled={isPending}>{task.completedAt ? <RotateCcw size={16} /> : <CheckCircle2 size={16} />}{task.completedAt ? "Reabrir tarefa" : "Concluir tarefa"}</button>
+          <button type="button" className="danger" onClick={() => onDelete(task)} disabled={isPending}><Trash2 size={16} /> Excluir</button>
+        </footer>
+      </section>
+    </div>,
+    document.body,
+  );
+}
+
+export function TasksSection({ data, filters, basePath = "/dashboard/tarefas", title = "Tarefas", description = "Organize prazos, cobranças, follow-ups e obrigações importantes." }: TasksSectionProps) {
   const router = useRouter();
   const [search, setSearch] = useState(filters.search);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<TaskItem | null>(null);
   const [pendingTaskId, setPendingTaskId] = useState<string | null>(null);
   const [draggedTask, setDraggedTask] = useState<TaskItem | null>(null);
   const [visibleColumns, setVisibleColumns] = useOptimistic(data.columns, (_current, nextColumns: TasksData["columns"]) => nextColumns);
@@ -178,7 +254,7 @@ export function TasksSection({ data, filters }: TasksSectionProps) {
       if (!value || value === "all" || value === "week") params.delete(key);
       else params.set(key, value);
     });
-    router.replace(`/dashboard/tarefas${params.size ? `?${params}` : ""}`);
+    router.replace(`${basePath}${params.size ? `?${params}` : ""}`);
   };
 
   const handleSearch = (event: FormEvent<HTMLFormElement>) => {
@@ -195,6 +271,7 @@ export function TasksSection({ data, filters }: TasksSectionProps) {
         showToast({ type: "error", title: "Ação não concluída", description: result.message });
         return;
       }
+      setSelectedTask(null);
       showToast({ type: "success", title: task.completedAt ? "Tarefa reaberta" : "Tarefa concluída", description: result.message });
       router.refresh();
     });
@@ -209,6 +286,7 @@ export function TasksSection({ data, filters }: TasksSectionProps) {
         showToast({ type: "error", title: "Tarefa não excluída", description: result.message });
         return;
       }
+      setSelectedTask(null);
       showToast({ type: "success", title: "Tarefa excluída", description: result.message });
       router.refresh();
     });
@@ -255,8 +333,8 @@ export function TasksSection({ data, filters }: TasksSectionProps) {
     <div className="tasks-content">
       <div className="tasks-heading-row">
         <div>
-          <h1>Tarefas</h1>
-          <p>Organize prazos, cobranças, follow-ups e obrigações importantes.</p>
+          <h1>{title}</h1>
+          <p>{description}</p>
         </div>
         <button type="button" className="tasks-new-button" onClick={() => setIsCreateOpen(true)}><Plus size={19} /> Nova tarefa</button>
       </div>
@@ -293,18 +371,24 @@ export function TasksSection({ data, filters }: TasksSectionProps) {
           </select>
         </label>
 
-        <button type="button" className="tasks-clear-button" onClick={() => { setSearch(""); router.replace("/dashboard/tarefas"); }}><RotateCcw size={17} /> Limpar filtros</button>
+        <button type="button" className="tasks-clear-button" onClick={() => {
+          setSearch("");
+          const params = new URLSearchParams(window.location.search);
+          ["busca", "tipo", "status", "periodo"].forEach((key) => params.delete(key));
+          router.replace(`${basePath}${params.size ? `?${params}` : ""}`);
+        }}><RotateCcw size={17} /> Limpar filtros</button>
       </section>
 
       <div className="tasks-board" aria-label={`${totalVisible} tarefas encontradas`}>
-        <TaskColumn id="overdue" title="Atrasadas" tone="red" tasks={visibleColumns.overdue} onAdd={() => setIsCreateOpen(true)} onToggle={handleToggle} onDelete={handleDelete} onMove={handleMove} onDragStart={setDraggedTask} isDragTarget={draggedTask !== null && draggedTask.bucket !== "overdue"} pendingTaskId={pendingTaskId} />
-        <TaskColumn id="todo" title="A começar" tone="purple" tasks={visibleColumns.todo} onAdd={() => setIsCreateOpen(true)} onToggle={handleToggle} onDelete={handleDelete} onMove={handleMove} onDragStart={setDraggedTask} isDragTarget={draggedTask !== null && draggedTask.bucket !== "todo"} pendingTaskId={pendingTaskId} />
-        <TaskColumn id="in_progress" title="Em andamento" tone="blue" tasks={visibleColumns.inProgress} onAdd={() => setIsCreateOpen(true)} onToggle={handleToggle} onDelete={handleDelete} onMove={handleMove} onDragStart={setDraggedTask} isDragTarget={draggedTask !== null && draggedTask.bucket !== "in_progress"} pendingTaskId={pendingTaskId} />
-        <TaskColumn id="completed" title="Concluídas" tone="green" tasks={visibleColumns.completed} onAdd={() => setIsCreateOpen(true)} onToggle={handleToggle} onDelete={handleDelete} onMove={handleMove} onDragStart={setDraggedTask} isDragTarget={draggedTask !== null && draggedTask.bucket !== "completed"} pendingTaskId={pendingTaskId} />
-        <TaskColumn id="paused" title="Paralisadas" tone="slate" tasks={visibleColumns.paused} onAdd={() => setIsCreateOpen(true)} onToggle={handleToggle} onDelete={handleDelete} onMove={handleMove} onDragStart={setDraggedTask} isDragTarget={draggedTask !== null && draggedTask.bucket !== "paused"} pendingTaskId={pendingTaskId} />
+        <TaskColumn id="overdue" title="Atrasadas" tone="red" tasks={visibleColumns.overdue} onAdd={() => setIsCreateOpen(true)} onOpen={setSelectedTask} onToggle={handleToggle} onDelete={handleDelete} onMove={handleMove} onDragStart={setDraggedTask} isDragTarget={draggedTask !== null && draggedTask.bucket !== "overdue"} pendingTaskId={pendingTaskId} />
+        <TaskColumn id="todo" title="A começar" tone="purple" tasks={visibleColumns.todo} onAdd={() => setIsCreateOpen(true)} onOpen={setSelectedTask} onToggle={handleToggle} onDelete={handleDelete} onMove={handleMove} onDragStart={setDraggedTask} isDragTarget={draggedTask !== null && draggedTask.bucket !== "todo"} pendingTaskId={pendingTaskId} />
+        <TaskColumn id="in_progress" title="Em andamento" tone="blue" tasks={visibleColumns.inProgress} onAdd={() => setIsCreateOpen(true)} onOpen={setSelectedTask} onToggle={handleToggle} onDelete={handleDelete} onMove={handleMove} onDragStart={setDraggedTask} isDragTarget={draggedTask !== null && draggedTask.bucket !== "in_progress"} pendingTaskId={pendingTaskId} />
+        <TaskColumn id="completed" title="Concluídas" tone="green" tasks={visibleColumns.completed} onAdd={() => setIsCreateOpen(true)} onOpen={setSelectedTask} onToggle={handleToggle} onDelete={handleDelete} onMove={handleMove} onDragStart={setDraggedTask} isDragTarget={draggedTask !== null && draggedTask.bucket !== "completed"} pendingTaskId={pendingTaskId} />
+        <TaskColumn id="paused" title="Paralisadas" tone="slate" tasks={visibleColumns.paused} onAdd={() => setIsCreateOpen(true)} onOpen={setSelectedTask} onToggle={handleToggle} onDelete={handleDelete} onMove={handleMove} onDragStart={setDraggedTask} isDragTarget={draggedTask !== null && draggedTask.bucket !== "paused"} pendingTaskId={pendingTaskId} />
       </div>
 
       {isCreateOpen && <CreateTaskModal projects={data.projects} onClose={() => setIsCreateOpen(false)} />}
+      {selectedTask && <TaskDetailModal task={selectedTask} isPending={pendingTaskId === selectedTask.id} onClose={() => setSelectedTask(null)} onToggle={handleToggle} onDelete={handleDelete} />}
     </div>
   );
 }

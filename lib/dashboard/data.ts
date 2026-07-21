@@ -13,6 +13,7 @@ export type DashboardReminder = {
 
 export type DashboardNotification = DashboardReminder & {
   source: "task";
+  readAt: string | null;
 };
 
 export type DashboardDeadline = {
@@ -79,7 +80,9 @@ type ReminderRow = {
   projects: { name: string; clients: { name: string } | null } | null;
 };
 
-type NotificationRow = ReminderRow;
+type NotificationRow = ReminderRow & {
+  notification_read_at: string | null;
+};
 
 type DeadlineRow = {
   id: string;
@@ -174,7 +177,7 @@ export async function getDashboardData(ownerId: string, selectedDate: string): P
     supabase.from("projects").select("id", { count: "exact", head: true }).eq("owner_id", ownerId).not("deadline", "is", null).gte("deadline", dates.today).lt("deadline", dates.nextThirtyDays).neq("status", "completed").neq("status", "archived"),
     supabase.from("payments").select("amount").eq("owner_id", ownerId).in("status", ["pending", "overdue"]).overrideTypes<PaymentRow[]>(),
     supabase.from("reminders").select("id, title, kind, scheduled_at, projects(name, clients(name))").eq("owner_id", ownerId).is("completed_at", null).gte("scheduled_at", `${dates.today}T00:00:00-03:00`).lt("scheduled_at", `${dates.tomorrow}T00:00:00-03:00`).order("scheduled_at").limit(5).overrideTypes<ReminderRow[]>(),
-    supabase.from("reminders").select("id, title, kind, scheduled_at, projects(name, clients(name))").eq("owner_id", ownerId).is("completed_at", null).is("notification_read_at", null).lt("scheduled_at", `${dates.tomorrow}T00:00:00-03:00`).order("scheduled_at").limit(8).overrideTypes<NotificationRow[]>(),
+    supabase.from("reminders").select("id, title, kind, scheduled_at, notification_read_at, projects(name, clients(name))").eq("owner_id", ownerId).is("completed_at", null).is("notification_dismissed_at", null).lt("scheduled_at", `${dates.tomorrow}T00:00:00-03:00`).order("notification_read_at", { ascending: true, nullsFirst: true }).order("scheduled_at").limit(12).overrideTypes<NotificationRow[]>(),
     supabase.from("projects").select("id, name, progress, deadline, clients(id, name, company_name, email, phone, whatsapp, website, notes, logo_path)").eq("owner_id", ownerId).not("deadline", "is", null).gte("deadline", dates.today).neq("status", "completed").neq("status", "archived").order("deadline").limit(5).overrideTypes<DeadlineRow[]>(),
     supabase.from("budgets").select("id, amount, status, valid_until, payment_condition, projects(id, name, deadline, progress, clients(name, company_name, email, phone, whatsapp, logo_path))").eq("owner_id", ownerId).in("status", ["draft", "sent"]).order("created_at", { ascending: false }).limit(5).overrideTypes<BudgetRow[]>(),
     supabase.from("obligations").select("id, title, type, due_date, status").eq("owner_id", ownerId).gte("due_date", dates.monthStart).lt("due_date", dates.nextMonthStart).order("due_date").limit(6).overrideTypes<ObligationRow[]>(),
@@ -216,6 +219,7 @@ export async function getDashboardData(ownerId: string, selectedDate: string): P
       projectName: notification.projects?.name ?? null,
       clientName: notification.projects?.clients?.name ?? null,
       source: "task",
+      readAt: notification.notification_read_at,
     })),
     deadlines: (deadlinesResult.data ?? []).map((project) => ({
       id: project.id,

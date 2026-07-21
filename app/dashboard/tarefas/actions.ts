@@ -26,6 +26,7 @@ function getKind(value: string): TaskKind {
 function revalidateTasks() {
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/tarefas");
+  revalidatePath("/dashboard/agenda");
 }
 
 function getDateInSaoPaulo(daysFromToday: number) {

@@ -253,6 +253,47 @@
   font-weight: 800;
 }
 
+.dashboard-notification-tools {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem;
+  padding: .75rem .8rem 0;
+}
+
+.dashboard-notification-tools small {
+  color: #64748b;
+  font-size: .68rem;
+  font-weight: 700;
+}
+
+.dashboard-notification-tools button {
+  display: inline-flex;
+  min-height: 1.9rem;
+  align-items: center;
+  gap: .35rem;
+  border: 1px solid #e2e8f0;
+  border-radius: .58rem;
+  padding: 0 .6rem;
+  color: #071e63;
+  background: #fff;
+  font-size: .66rem;
+  font-weight: 800;
+  transition: border-color 220ms ease, color 220ms ease, background-color 220ms ease, transform 220ms ease;
+}
+
+.dashboard-notification-tools button:hover:not(:disabled) {
+  border-color: #a78bfa;
+  color: #6d28d9;
+  background: #f8f5ff;
+  transform: translateY(-1px);
+}
+
+.dashboard-notification-tools button:disabled {
+  cursor: wait;
+  opacity: .62;
+}
+
 .dashboard-reminders-popover-list {
   display: grid;
   gap: .65rem;
@@ -270,6 +311,13 @@
   box-shadow: 0 12px 28px -24px rgba(4, 19, 66, .45);
 }
 
+.dashboard-reminder-card.is-read {
+  border-color: #e2e8f0;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  box-shadow: none;
+  opacity: .78;
+}
+
 .dashboard-reminder-card-icon {
   display: grid;
   width: 2.25rem;
@@ -278,6 +326,11 @@
   border-radius: .7rem;
   color: #6d28d9;
   background: #f1edff;
+}
+
+.dashboard-reminder-card.is-read .dashboard-reminder-card-icon {
+  color: #64748b;
+  background: #e2e8f0;
 }
 
 .dashboard-reminder-card-content {
@@ -300,6 +353,10 @@
   line-height: 1.35;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.dashboard-reminder-card.is-read .dashboard-reminder-card-content strong {
+  color: #475569;
 }
 
 .dashboard-reminder-card-content time {
@@ -326,6 +383,11 @@
   background: #eef4ff;
   font-size: .62rem;
   font-weight: 800;
+}
+
+.dashboard-reminder-card.is-read .dashboard-reminder-card-content span {
+  color: #475569;
+  background: #e2e8f0;
 }
 
 .dashboard-reminder-card > button {

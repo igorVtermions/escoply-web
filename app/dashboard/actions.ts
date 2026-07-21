@@ -40,6 +40,30 @@ export async function markReminderSeenAction(reminderId: string): Promise<Remind
   return { success: true, message: "Notificação marcada como lida." };
 }
 
+export async function clearNotificationsAction(): Promise<ReminderActionResult> {
+  const user = await requireUser();
+  const supabase = await createSupabaseServerClient();
+  const now = new Date();
+  const tomorrow = new Date(now);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  tomorrow.setHours(0, 0, 0, 0);
+
+  const { error } = await supabase
+    .from("reminders")
+    .update({ notification_dismissed_at: now.toISOString() })
+    .eq("owner_id", user.id)
+    .is("completed_at", null)
+    .is("notification_dismissed_at", null)
+    .lt("scheduled_at", tomorrow.toISOString());
+
+  if (error) {
+    return { success: false, message: "Não foi possível limpar as notificações." };
+  }
+
+  revalidatePath("/dashboard");
+  return { success: true, message: "Notificações limpas." };
+}
+
 function getValue(formData: FormData, name: string) {
   const value = formData.get(name);
   return typeof value === "string" ? value.trim() : "";

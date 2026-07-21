@@ -297,7 +297,7 @@
   border-radius: .85rem;
   background: #fff;
   box-shadow: 0 14px 30px -28px rgba(4, 19, 66, .42);
-  cursor: grab;
+  cursor: pointer;
   animation: task-card-enter 220ms var(--ease-out-smooth) both;
   transition: opacity 180ms ease, border-color 220ms ease, box-shadow 220ms ease, transform 220ms ease;
 }
@@ -592,6 +592,168 @@
 .tasks-modal-form button:disabled {
   cursor: wait;
   opacity: .72;
+}
+
+.tasks-detail-modal {
+  position: relative;
+  width: min(100%, 42rem);
+  max-height: min(44rem, calc(100vh - 2rem));
+  overflow-y: auto;
+  scrollbar-width: none;
+  padding: 1.8rem;
+  border: 1px solid rgba(255,255,255,.62);
+  border-radius: 1.35rem;
+  background: #fff;
+  box-shadow: 0 34px 100px -24px rgba(4,19,66,.68);
+  animation: auth-modal-in 460ms var(--ease-out-smooth) both;
+}
+
+.tasks-detail-modal::-webkit-scrollbar {
+  display: none;
+}
+
+.tasks-detail-hero {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: .9rem;
+  padding-right: 3.4rem;
+}
+
+.tasks-detail-icon {
+  display: grid;
+  width: 3.15rem;
+  height: 3.15rem;
+  place-items: center;
+  border-radius: .95rem;
+}
+
+.tasks-detail-icon.purple { color: #7c3aed; background: #f0eaff; }
+.tasks-detail-icon.blue { color: #2563eb; background: #e8f1ff; }
+.tasks-detail-icon.orange { color: #f97316; background: #fff3df; }
+.tasks-detail-icon.green { color: #16a34a; background: #e4f7ea; }
+.tasks-detail-icon.red { color: #ef4444; background: #feecec; }
+.tasks-detail-icon.slate { color: #475569; background: #f1f5f9; }
+
+.tasks-detail-hero small {
+  display: block;
+  color: #7c3aed;
+  font-size: .72rem;
+  font-weight: 900;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+
+.tasks-detail-hero h2 {
+  margin-top: .35rem;
+  color: #071542;
+  font-size: 1.75rem;
+  line-height: 1.12;
+  letter-spacing: -.045em;
+}
+
+.tasks-detail-hero p {
+  margin-top: .45rem;
+  color: #64748b;
+  font-size: .86rem;
+  line-height: 1.55;
+}
+
+.tasks-detail-status-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .45rem;
+  margin-top: 1rem;
+}
+
+.tasks-detail-status-row span {
+  border-radius: 999px;
+  padding: .34rem .68rem;
+  color: #475569;
+  background: #f1f5f9;
+  font-size: .68rem;
+  font-weight: 900;
+}
+
+.tasks-detail-status-row .overdue { color: #dc2626; background: #fee2e2; }
+.tasks-detail-status-row .todo { color: #7c3aed; background: #f0eaff; }
+.tasks-detail-status-row .in_progress { color: #2563eb; background: #e8f1ff; }
+.tasks-detail-status-row .completed { color: #15803d; background: #dcfce7; }
+.tasks-detail-status-row .paused { color: #475569; background: #e2e8f0; }
+
+.tasks-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .75rem;
+  margin-top: 1rem;
+  padding: 1rem;
+  border: 1px solid #edf1f7;
+  border-radius: 1rem;
+  background: linear-gradient(180deg, #fff 0%, #fbfdff 100%);
+}
+
+.tasks-detail-grid div {
+  min-width: 0;
+  border: 1px solid #edf1f7;
+  border-radius: .8rem;
+  padding: .75rem;
+  background: #fff;
+}
+
+.tasks-detail-grid small {
+  display: block;
+  color: #64748b;
+  font-size: .68rem;
+  font-weight: 850;
+}
+
+.tasks-detail-grid strong {
+  display: block;
+  overflow-wrap: anywhere;
+  margin-top: .3rem;
+  color: #071542;
+  font-size: .82rem;
+  font-weight: 900;
+  text-transform: capitalize;
+}
+
+.tasks-detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: .65rem;
+  margin-top: 1rem;
+}
+
+.tasks-detail-actions button,
+.tasks-detail-actions a {
+  display: inline-flex;
+  min-height: 2.85rem;
+  align-items: center;
+  justify-content: center;
+  gap: .45rem;
+  border-radius: .75rem;
+  padding: 0 .95rem;
+  font-size: .76rem;
+  font-weight: 900;
+}
+
+.tasks-detail-actions button {
+  border: 1px solid #dfe5ef;
+  color: #071e63;
+  background: #fff;
+}
+
+.tasks-detail-actions a,
+.tasks-detail-actions button:nth-last-child(2) {
+  color: #fff;
+  background: linear-gradient(110deg, #1946c8, #6d28d9);
+  border-color: transparent;
+}
+
+.tasks-detail-actions button.danger {
+  color: #dc2626;
+  background: #fff;
+  border-color: #fecaca;
 }
 
 @media (max-width: 1180px) {
