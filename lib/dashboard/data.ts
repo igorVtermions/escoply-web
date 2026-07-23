@@ -12,7 +12,7 @@ export type DashboardReminder = {
 };
 
 export type DashboardNotification = DashboardReminder & {
-  source: "task";
+  source: "task" | "obligation";
   readAt: string | null;
 };
 
@@ -53,8 +53,11 @@ export type DashboardBudget = {
 export type DashboardObligation = {
   id: string;
   title: string;
+  description: string | null;
   type: string;
+  recurrence: string | null;
   dueDate: string;
+  amount: number | null;
   status: string;
 };
 
@@ -124,8 +127,10 @@ type BudgetRow = {
   } | null;
 };
 
-type PaymentRow = { amount: number };
-type ObligationRow = { id: string; title: string; type: string; due_date: string; status: string };
+type PaymentRow = { amount: number | string; status: string; project_id: string; budget_id: string | null };
+type ReceivableBudgetRow = { id: string; project_id: string; amount: number | string; status: string };
+type ObligationRow = { id: string; title: string; description: string | null; type: string; recurrence: string | null; due_date: string; amount: number | string | null; status: string };
+type ObligationNotificationRow = ObligationRow & { notification_read_at: string | null };
 
 export function getTodayInSaoPaulo() {
   const formatter = new Intl.DateTimeFormat("en-CA", {
@@ -166,8 +171,10 @@ export async function getDashboardData(ownerId: string, selectedDate: string): P
     projectsResult,
     deadlineCountResult,
     paymentsResult,
+    receivableBudgetsResult,
     remindersResult,
     notificationsResult,
+    obligationNotificationsResult,
     deadlinesResult,
     budgetsResult,
     obligationsResult,
@@ -175,15 +182,17 @@ export async function getDashboardData(ownerId: string, selectedDate: string): P
     supabase.from("clients").select("id", { count: "exact", head: true }).eq("owner_id", ownerId).eq("status", "active"),
     supabase.from("projects").select("id", { count: "exact", head: true }).eq("owner_id", ownerId).in("status", ["in_progress", "review"]),
     supabase.from("projects").select("id", { count: "exact", head: true }).eq("owner_id", ownerId).not("deadline", "is", null).gte("deadline", dates.today).lt("deadline", dates.nextThirtyDays).neq("status", "completed").neq("status", "archived"),
-    supabase.from("payments").select("amount").eq("owner_id", ownerId).in("status", ["pending", "overdue"]).overrideTypes<PaymentRow[]>(),
+    supabase.from("payments").select("amount, status, project_id, budget_id").eq("owner_id", ownerId).neq("status", "cancelled").overrideTypes<PaymentRow[]>(),
+    supabase.from("budgets").select("id, project_id, amount, status").eq("owner_id", ownerId).in("status", ["sent", "approved"]).overrideTypes<ReceivableBudgetRow[]>(),
     supabase.from("reminders").select("id, title, kind, scheduled_at, projects(name, clients(name))").eq("owner_id", ownerId).is("completed_at", null).gte("scheduled_at", `${dates.today}T00:00:00-03:00`).lt("scheduled_at", `${dates.tomorrow}T00:00:00-03:00`).order("scheduled_at").limit(5).overrideTypes<ReminderRow[]>(),
     supabase.from("reminders").select("id, title, kind, scheduled_at, notification_read_at, projects(name, clients(name))").eq("owner_id", ownerId).is("completed_at", null).is("notification_dismissed_at", null).lt("scheduled_at", `${dates.tomorrow}T00:00:00-03:00`).order("notification_read_at", { ascending: true, nullsFirst: true }).order("scheduled_at").limit(12).overrideTypes<NotificationRow[]>(),
+    supabase.from("obligations").select("id, title, type, due_date, status, notification_read_at").eq("owner_id", ownerId).is("notification_dismissed_at", null).neq("status", "paid").neq("status", "completed").neq("status", "inactive").lt("due_date", dates.tomorrow).order("notification_read_at", { ascending: true, nullsFirst: true }).order("due_date").limit(12).overrideTypes<ObligationNotificationRow[]>(),
     supabase.from("projects").select("id, name, progress, deadline, clients(id, name, company_name, email, phone, whatsapp, website, notes, logo_path)").eq("owner_id", ownerId).not("deadline", "is", null).gte("deadline", dates.today).neq("status", "completed").neq("status", "archived").order("deadline").limit(5).overrideTypes<DeadlineRow[]>(),
     supabase.from("budgets").select("id, amount, status, valid_until, payment_condition, projects(id, name, deadline, progress, clients(name, company_name, email, phone, whatsapp, logo_path))").eq("owner_id", ownerId).in("status", ["draft", "sent"]).order("created_at", { ascending: false }).limit(5).overrideTypes<BudgetRow[]>(),
-    supabase.from("obligations").select("id, title, type, due_date, status").eq("owner_id", ownerId).gte("due_date", dates.monthStart).lt("due_date", dates.nextMonthStart).order("due_date").limit(6).overrideTypes<ObligationRow[]>(),
+    supabase.from("obligations").select("id, title, description, type, recurrence, due_date, amount, status").eq("owner_id", ownerId).gte("due_date", dates.monthStart).lt("due_date", dates.nextMonthStart).order("due_date").limit(6).overrideTypes<ObligationRow[]>(),
   ]);
 
-  const results = [clientsResult, projectsResult, deadlineCountResult, paymentsResult, remindersResult, notificationsResult, deadlinesResult, budgetsResult, obligationsResult];
+  const results = [clientsResult, projectsResult, deadlineCountResult, paymentsResult, receivableBudgetsResult, remindersResult, notificationsResult, obligationNotificationsResult, deadlinesResult, budgetsResult, obligationsResult];
   const failedResult = results.find((result) => result.error);
   if (failedResult?.error) throw failedResult.error;
 
@@ -196,12 +205,22 @@ export async function getDashboardData(ownerId: string, selectedDate: string): P
     : { data: [] };
   const logoUrlMap = new Map((logoUrls.data ?? []).flatMap((logo) => logo.path && logo.signedUrl ? [[logo.path, logo.signedUrl] as const] : []));
 
+  const payments = paymentsResult.data ?? [];
+  const projectsWithPaymentPlan = new Set(payments.map((payment) => payment.project_id));
+  const budgetsWithPaymentPlan = new Set(payments.flatMap((payment) => payment.budget_id ? [payment.budget_id] : []));
+  const receivableFromPayments = payments
+    .filter((payment) => payment.status === "pending" || payment.status === "overdue")
+    .reduce((total, payment) => total + Number(payment.amount), 0);
+  const receivableFromBudgetsWithoutPayments = (receivableBudgetsResult.data ?? [])
+    .filter((budget) => !budgetsWithPaymentPlan.has(budget.id) && !projectsWithPaymentPlan.has(budget.project_id))
+    .reduce((total, budget) => total + Number(budget.amount), 0);
+
   return {
     metrics: {
       activeClients: clientsResult.count ?? 0,
       projectsInProgress: projectsResult.count ?? 0,
       upcomingDeadlines: deadlineCountResult.count ?? 0,
-      receivableAmount: (paymentsResult.data ?? []).reduce((total, payment) => total + Number(payment.amount), 0),
+      receivableAmount: receivableFromPayments + receivableFromBudgetsWithoutPayments,
     },
     reminders: (remindersResult.data ?? []).map((reminder) => ({
       id: reminder.id,
@@ -211,16 +230,32 @@ export async function getDashboardData(ownerId: string, selectedDate: string): P
       projectName: reminder.projects?.name ?? null,
       clientName: reminder.projects?.clients?.name ?? null,
     })),
-    notifications: (notificationsResult.data ?? []).map((notification) => ({
-      id: notification.id,
-      title: notification.title,
-      kind: notification.kind,
-      scheduledAt: notification.scheduled_at,
-      projectName: notification.projects?.name ?? null,
-      clientName: notification.projects?.clients?.name ?? null,
-      source: "task",
-      readAt: notification.notification_read_at,
-    })),
+    notifications: [
+      ...(notificationsResult.data ?? []).map((notification) => ({
+        id: notification.id,
+        title: notification.title,
+        kind: notification.kind,
+        scheduledAt: notification.scheduled_at,
+        projectName: notification.projects?.name ?? null,
+        clientName: notification.projects?.clients?.name ?? null,
+        source: "task" as const,
+        readAt: notification.notification_read_at,
+      })),
+      ...(obligationNotificationsResult.data ?? []).map((notification) => ({
+        id: notification.id,
+        title: notification.title,
+        kind: "obligation",
+        scheduledAt: `${notification.due_date}T09:00:00-03:00`,
+        projectName: null,
+        clientName: null,
+        source: "obligation" as const,
+        readAt: notification.notification_read_at,
+      })),
+    ].sort((first, second) => {
+      if (!first.readAt && second.readAt) return -1;
+      if (first.readAt && !second.readAt) return 1;
+      return new Date(first.scheduledAt).getTime() - new Date(second.scheduledAt).getTime();
+    }).slice(0, 12),
     deadlines: (deadlinesResult.data ?? []).map((project) => ({
       id: project.id,
       name: project.name,
@@ -256,8 +291,11 @@ export async function getDashboardData(ownerId: string, selectedDate: string): P
     obligations: (obligationsResult.data ?? []).map((obligation) => ({
       id: obligation.id,
       title: obligation.title,
+      description: obligation.description,
       type: obligation.type,
+      recurrence: obligation.recurrence,
       dueDate: obligation.due_date,
+      amount: obligation.amount === null ? null : Number(obligation.amount),
       status: obligation.status,
     })),
   };

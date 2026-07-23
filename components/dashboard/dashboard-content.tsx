@@ -1,9 +1,9 @@
 "use client";
 
-import { useActionState, useEffect, useState, useTransition } from "react";
+import { useActionState, useEffect, useState, useTransition, type MouseEvent } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import { Bell, BriefcaseBusiness, Building2, CalendarDays, CheckCircle2, ClipboardList, Clock3, DollarSign, FileText, Globe2, Mail, Phone, Plus, UsersRound, X } from "lucide-react";
+import { Bell, BriefcaseBusiness, Building2, CalendarDays, CheckCircle2, ClipboardList, Clock3, DollarSign, FileText, Globe2, Mail, MoreVertical, Pencil, Phone, Plus, UsersRound, X } from "lucide-react";
 import { createObligationAction } from "@/app/dashboard/actions";
 import { showToast } from "@/components/ui/toast-provider";
 import type { DashboardData } from "@/lib/dashboard/data";
@@ -19,16 +19,21 @@ const reminderPresentation: Record<string, { label: string; color: string }> = {
 };
 
 const budgetLabels: Record<string, string> = { draft: "Rascunho", sent: "Enviado" };
-const obligationTypes: Record<string, string> = { tax: "Imposto", contribution: "Contribuição", administrative: "Administrativo", financial: "Financeiro", other: "Outro" };
+const obligationTypes: Record<string, string> = { tax: "Imposto", contribution: "Contribuição", subscription: "Assinatura", client: "Cliente", administrative: "Administrativo", financial: "Financeiro", other: "Outro" };
+const obligationRecurrences: Record<string, string> = { weekly: "Semanal", monthly: "Mensal", quarterly: "Trimestral", yearly: "Anual", custom: "Personalizada" };
 const obligationPresentation: Record<string, { label: string; tone: string }> = {
   paid: { label: "Paga", tone: "green" },
   completed: { label: "Concluída", tone: "green" },
   pending: { label: "Pendente", tone: "orange" },
+  upcoming: { label: "Próxima", tone: "blue" },
+  overdue: { label: "Atrasada", tone: "orange" },
+  inactive: { label: "Inativa", tone: "slate" },
   in_progress: { label: "Em andamento", tone: "blue" },
   not_started: { label: "Não iniciada", tone: "slate" },
 };
 
 const currencyFormatter = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
+const obligationCurrencyFormatter = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 const dateFormatter = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" });
 const timeFormatter = new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" });
 
@@ -61,7 +66,15 @@ export function DashboardContent({ data, selectedDate }: { data: DashboardData; 
   const router = useRouter();
   const [selectedDeadline, setSelectedDeadline] = useState<DashboardData["deadlines"][number] | null>(null);
   const [selectedBudget, setSelectedBudget] = useState<DashboardData["budgets"][number] | null>(null);
-  const [isObligationModalOpen, setIsObligationModalOpen] = useState(false);
+  const [isObligationModalOpen, setIsObligationModalOpenState] = useState(false);
+  const setIsObligationModalOpen = (open: boolean) => {
+    if (open) {
+      router.push("/dashboard/obrigacoes");
+      return;
+    }
+
+    setIsObligationModalOpenState(false);
+  };
   const [isDatePending, startDateTransition] = useTransition();
   const metrics = [
     { label: "Clientes ativos", value: String(data.metrics.activeClients), helper: "Dados atuais", icon: UsersRound, tone: "blue" },
@@ -69,6 +82,22 @@ export function DashboardContent({ data, selectedDate }: { data: DashboardData; 
     { label: "Prazos próximos", value: String(data.metrics.upcomingDeadlines), helper: "Próximos 30 dias", icon: Clock3, tone: "orange" },
     { label: "A receber", value: currencyFormatter.format(data.metrics.receivableAmount), helper: "Pendente ou atrasado", icon: DollarSign, tone: "green" },
   ];
+
+  const handleDashboardGridClick = (event: MouseEvent<HTMLElement>) => {
+    const target = event.target instanceof HTMLElement ? event.target : null;
+    const button = target?.closest("button");
+    if (!button || button.textContent?.trim() !== "Ver todos") return;
+
+    const panelTitle = button.closest(".dashboard-panel")?.querySelector("h2")?.textContent ?? "";
+    if (panelTitle.includes("prazos") || panelTitle.includes("Prazos")) {
+      router.push(`/dashboard/agenda?visualizacao=agenda&modo=month&data=${encodeURIComponent(selectedDate)}`);
+      return;
+    }
+
+    if (panelTitle.includes("OrÃ§amentos") || panelTitle.includes("Orçamentos")) {
+      router.push("/dashboard/projetos");
+    }
+  };
 
   return (
     <div className="dashboard-content">
@@ -90,11 +119,11 @@ export function DashboardContent({ data, selectedDate }: { data: DashboardData; 
         })}
       </section>
 
-      <section className="dashboard-grid">
+      <section className="dashboard-grid" onClick={handleDashboardGridClick}>
         <article className="dashboard-panel">
-          <header><div><Bell size={20} /><h2>Lembretes do dia</h2></div><button type="button">Ver todos</button></header>
+          <header><div><Bell size={20} /><h2>Agenda de hoje</h2></div><button type="button" onClick={() => router.push(`/dashboard/agenda?visualizacao=agenda&modo=day&data=${encodeURIComponent(selectedDate)}`)}>Ver agenda</button></header>
           <div className="reminder-list">
-            {data.reminders.length === 0 && <EmptyPanelState>Nenhum lembrete para a data selecionada.</EmptyPanelState>}
+            {data.reminders.length === 0 && <EmptyPanelState>Nenhuma atividade para hoje. Sua agenda está livre na data selecionada.</EmptyPanelState>}
             {data.reminders.map((reminder) => {
               const presentation = reminderPresentation[reminder.kind] ?? reminderPresentation.other;
               return <div key={reminder.id} className={`reminder-item ${presentation.color}`}><time>{timeFormatter.format(new Date(reminder.scheduledAt))}</time><div><strong>{reminder.title}</strong><span>{[reminder.clientName, reminder.projectName].filter(Boolean).join(" · ") || "Lembrete geral"}</span></div><em>{presentation.label}</em></div>;
@@ -136,12 +165,44 @@ export function DashboardContent({ data, selectedDate }: { data: DashboardData; 
 
         <article className="dashboard-panel dashboard-obligations">
           <header><div><ClipboardList size={20} /><h2>Obrigações do mês</h2></div><button type="button" onClick={() => setIsObligationModalOpen(true)}><Plus size={16} /> Nova obrigação</button></header>
-          <div className="obligation-table">
+          <div className="dashboard-obligations-table" role="table" aria-label="Obrigações do mês">
+            <div className="dashboard-obligations-head" role="row">
+              <span>Obrigação</span>
+              <span>Tipo</span>
+              <span>Recorrência</span>
+              <span>Vencimento</span>
+              <span>Valor</span>
+              <span>Status</span>
+              <span>Ações</span>
+            </div>
             {data.obligations.length === 0 && <EmptyPanelState>Nenhuma obrigação cadastrada para este mês.</EmptyPanelState>}
             {data.obligations.map((obligation) => {
               const presentation = obligationPresentation[obligation.status] ?? obligationPresentation.not_started;
-              return <div key={obligation.id}><strong>{obligation.title}</strong><span>{obligationTypes[obligation.type] ?? obligation.type}</span><time>{dateFormatter.format(new Date(`${obligation.dueDate}T12:00:00Z`))}</time><em className={presentation.tone}><CheckCircle2 size={14} />{presentation.label}</em></div>;
+              return (
+                <div key={obligation.id} className="dashboard-obligations-row" role="row" tabIndex={0} onClick={() => router.push("/dashboard/obrigacoes")} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") router.push("/dashboard/obrigacoes"); }}>
+                  <span className="dashboard-obligations-name">
+                    <i><ClipboardList size={18} /></i>
+                    <span><strong>{obligation.title}</strong><small>{obligation.description || "Sem descrição"}</small></span>
+                  </span>
+                  <span>{obligationTypes[obligation.type] ?? obligation.type}</span>
+                  <span>{obligationRecurrences[obligation.recurrence ?? ""] ?? "Mensal"}</span>
+                  <time>{dateFormatter.format(new Date(`${obligation.dueDate}T12:00:00Z`))}</time>
+                  <span>{obligation.amount === null ? "—" : obligationCurrencyFormatter.format(obligation.amount)}</span>
+                  <em className={`dashboard-obligation-status ${presentation.tone}`}>{presentation.label}</em>
+                  <span className="dashboard-obligations-actions">
+                    <button type="button" title="Marcar como paga" onClick={(event) => { event.stopPropagation(); router.push("/dashboard/obrigacoes"); }}><CheckCircle2 size={17} /></button>
+                    <button type="button" title="Editar obrigação" onClick={(event) => { event.stopPropagation(); router.push("/dashboard/obrigacoes"); }}><Pencil size={17} /></button>
+                    <button type="button" title="Mais ações" onClick={(event) => { event.stopPropagation(); router.push("/dashboard/obrigacoes"); }}><MoreVertical size={18} /></button>
+                  </span>
+                </div>
+              );
             })}
+            {data.obligations.length > 0 && (
+              <footer className="dashboard-obligations-footer">
+                <span>Mostrando 1 a {data.obligations.length} de {data.obligations.length} obrigações</span>
+                <div><button type="button" disabled>‹</button><strong>1</strong><button type="button" disabled>›</button></div>
+              </footer>
+            )}
           </div>
         </article>
       </section>

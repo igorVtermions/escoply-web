@@ -225,7 +225,6 @@ function TaskDetailModal({ task, isPending, onClose, onToggle, onDelete }: { tas
         </section>
 
         <footer className="tasks-detail-actions">
-          <button type="button" onClick={onClose} disabled={isPending}>Fechar</button>
           {projectHref && <a href={projectHref}><ExternalLink size={16} /> Abrir projeto</a>}
           <button type="button" onClick={() => onToggle(task)} disabled={isPending}>{task.completedAt ? <RotateCcw size={16} /> : <CheckCircle2 size={16} />}{task.completedAt ? "Reabrir tarefa" : "Concluir tarefa"}</button>
           <button type="button" className="danger" onClick={() => onDelete(task)} disabled={isPending}><Trash2 size={16} /> Excluir</button>

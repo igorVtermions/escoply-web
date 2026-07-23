@@ -55,6 +55,8 @@ const rawStatusLabels: Record<string, string> = {
   pending: "Pendente",
   paid: "Pago",
   overdue: "Atrasado",
+  upcoming: "Próximo",
+  inactive: "Inativo",
   cancelled: "Cancelado",
   not_started: "Não iniciada",
   review: "Em revisão",
@@ -72,6 +74,8 @@ const taskKindLabels: Record<string, string> = {
 
 const obligationTypeLabels: Record<string, string> = {
   tax: "Imposto",
+  subscription: "Assinatura",
+  client: "Cliente",
   contribution: "Contribuição",
   administrative: "Administrativo",
   financial: "Financeiro",
@@ -278,10 +282,11 @@ function AgendaEventModal({ item, onClose }: { item: AgendaItem; onClose: () => 
           </section>
         )}
 
-        <footer>
-          <button type="button" onClick={onClose}>Fechar</button>
-          {projectHref && <a href={projectHref}><ExternalLink size={16} /> Abrir projeto completo</a>}
-        </footer>
+        {projectHref && (
+          <footer>
+            <a href={projectHref}><ExternalLink size={16} /> Abrir projeto completo</a>
+          </footer>
+        )}
       </section>
     </div>,
     document.body,

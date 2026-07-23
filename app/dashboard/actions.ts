@@ -18,26 +18,42 @@ function isValidUuid(value: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
 
-export async function markReminderSeenAction(reminderId: string): Promise<ReminderActionResult> {
+function getValue(formData: FormData, name: string) {
+  const value = formData.get(name);
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function revalidateDashboardSurfaces() {
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/agenda");
+  revalidatePath("/dashboard/obrigacoes");
+}
+
+export async function markNotificationSeenAction(source: "task" | "obligation", notificationId: string): Promise<ReminderActionResult> {
   const user = await requireUser();
 
-  if (!isValidUuid(reminderId)) {
+  if (!isValidUuid(notificationId)) {
     return { success: false, message: "Notificação inválida." };
   }
 
   const supabase = await createSupabaseServerClient();
+  const table = source === "task" ? "reminders" : "obligations";
   const { error } = await supabase
-    .from("reminders")
+    .from(table)
     .update({ notification_read_at: new Date().toISOString() })
     .eq("owner_id", user.id)
-    .eq("id", reminderId);
+    .eq("id", notificationId);
 
   if (error) {
     return { success: false, message: "Não foi possível marcar a notificação como lida." };
   }
 
-  revalidatePath("/dashboard");
+  revalidateDashboardSurfaces();
   return { success: true, message: "Notificação marcada como lida." };
+}
+
+export async function markReminderSeenAction(reminderId: string): Promise<ReminderActionResult> {
+  return markNotificationSeenAction("task", reminderId);
 }
 
 export async function clearNotificationsAction(): Promise<ReminderActionResult> {
@@ -48,7 +64,7 @@ export async function clearNotificationsAction(): Promise<ReminderActionResult> 
   tomorrow.setDate(tomorrow.getDate() + 1);
   tomorrow.setHours(0, 0, 0, 0);
 
-  const { error } = await supabase
+  const remindersResult = await supabase
     .from("reminders")
     .update({ notification_dismissed_at: now.toISOString() })
     .eq("owner_id", user.id)
@@ -56,17 +72,22 @@ export async function clearNotificationsAction(): Promise<ReminderActionResult> 
     .is("notification_dismissed_at", null)
     .lt("scheduled_at", tomorrow.toISOString());
 
-  if (error) {
+  const obligationsResult = await supabase
+    .from("obligations")
+    .update({ notification_dismissed_at: now.toISOString() })
+    .eq("owner_id", user.id)
+    .neq("status", "paid")
+    .neq("status", "completed")
+    .neq("status", "inactive")
+    .is("notification_dismissed_at", null)
+    .lt("due_date", tomorrow.toISOString().slice(0, 10));
+
+  if (remindersResult.error || obligationsResult.error) {
     return { success: false, message: "Não foi possível limpar as notificações." };
   }
 
-  revalidatePath("/dashboard");
+  revalidateDashboardSurfaces();
   return { success: true, message: "Notificações limpas." };
-}
-
-function getValue(formData: FormData, name: string) {
-  const value = formData.get(name);
-  return typeof value === "string" ? value.trim() : "";
 }
 
 export async function createObligationAction(_state: ObligationActionState, formData: FormData): Promise<ObligationActionState> {
@@ -92,6 +113,6 @@ export async function createObligationAction(_state: ObligationActionState, form
 
   if (error) return { success: false, message: "Não foi possível criar a obrigação agora." };
 
-  revalidatePath("/dashboard");
+  revalidateDashboardSurfaces();
   return { success: true, message: "Obrigação criada com sucesso." };
 }

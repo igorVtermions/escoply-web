@@ -60,9 +60,11 @@ type ReminderRow = {
 type ObligationRow = {
   id: string;
   title: string;
+  description: string | null;
   type: string;
   due_date: string;
   status: string;
+  amount: number | string | null;
 };
 
 type ProjectDeadlineRow = {
@@ -149,7 +151,7 @@ export async function getAgendaData(ownerId: string, range: AgendaRange): Promis
       .overrideTypes<ReminderRow[]>(),
     supabase
       .from("obligations")
-      .select("id, title, type, due_date, status")
+      .select("id, title, description, type, due_date, status, amount")
       .eq("owner_id", ownerId)
       .gte("due_date", range.startDate)
       .lte("due_date", range.endDate)
@@ -228,14 +230,14 @@ export async function getAgendaData(ownerId: string, range: AgendaRange): Promis
       kind: "obligation",
       status: resolveStatus(dateKey, today, item.status),
       rawStatus: item.status,
-      amount: null,
+      amount: item.amount === null ? null : Number(item.amount),
       projectId: null,
       projectName: null,
       projectDeadline: null,
       projectProgress: null,
       clientName: null,
       clientCompanyName: null,
-      description: item.type,
+      description: item.description ?? item.type,
       paymentCondition: null,
       paidAt: null,
       receiptFileName: null,

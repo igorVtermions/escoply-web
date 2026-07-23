@@ -4,7 +4,7 @@ import { startTransition, useEffect, useMemo, useOptimistic, useState, type Reac
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Bell, BriefcaseBusiness, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, ClipboardList, Crown, Folder, Home, LogOut, Search, Settings, Trash2, UsersRound } from "lucide-react";
-import { clearNotificationsAction, markReminderSeenAction } from "@/app/dashboard/actions";
+import { clearNotificationsAction, markNotificationSeenAction } from "@/app/dashboard/actions";
 import { BrandLogo } from "@/components/ui/brand-logo";
 import { showToast } from "@/components/ui/toast-provider";
 import type { DashboardData } from "@/lib/dashboard/data";
@@ -17,7 +17,7 @@ const navigation = [
   { label: "Clientes", icon: UsersRound, href: "/dashboard/clientes", available: true },
   { label: "Projetos", icon: BriefcaseBusiness, href: "/dashboard/projetos", available: true },
   { label: "Agenda", icon: CalendarDays, href: "/dashboard/agenda", available: true },
-  { label: "Obrigações", icon: ClipboardList, href: "/dashboard/obrigacoes", available: false },
+  { label: "Obrigações", icon: ClipboardList, href: "/dashboard/obrigacoes", available: true },
   { label: "Materiais", icon: Folder, href: "/dashboard/materiais", available: false },
   { label: "Configurações", icon: Settings, href: "/dashboard/configuracoes", available: false },
 ];
@@ -33,6 +33,7 @@ const reminderKindLabels: Record<string, string> = {
   follow_up: "Follow-up",
   charge: "Cobrança",
   other: "Lembrete",
+  obligation: "Obrigação",
 };
 
 function getInitials(name: string) {
@@ -74,14 +75,15 @@ export function WorkspaceShell({ children, email, profile, avatarUrl, dashboardD
   const [clearedReminderIds, setClearedReminderIds] = useState<Set<string>>(() => new Set());
   const activePath = optimisticPath;
   const displayName = useMemo(() => profile?.full_name || email?.split("@")[0] || "Freelancer", [email, profile]);
-  const visibleNotifications = useMemo(() => dashboardData.notifications.filter((notification) => !clearedReminderIds.has(notification.id)), [dashboardData.notifications, clearedReminderIds]);
-  const unreadNotificationsCount = useMemo(() => visibleNotifications.filter((notification) => !notification.readAt && !readReminderIds.has(notification.id)).length, [readReminderIds, visibleNotifications]);
+  const visibleNotifications = useMemo(() => dashboardData.notifications.filter((notification) => !clearedReminderIds.has(`${notification.source}:${notification.id}`)), [dashboardData.notifications, clearedReminderIds]);
+  const unreadNotificationsCount = useMemo(() => visibleNotifications.filter((notification) => !notification.readAt && !readReminderIds.has(`${notification.source}:${notification.id}`)).length, [readReminderIds, visibleNotifications]);
 
   useEffect(() => {
     router.prefetch("/dashboard");
     router.prefetch("/dashboard/clientes");
     router.prefetch("/dashboard/projetos");
     router.prefetch("/dashboard/agenda");
+    router.prefetch("/dashboard/obrigacoes");
   }, [router]);
 
   useEffect(() => {
@@ -105,10 +107,11 @@ export function WorkspaceShell({ children, email, profile, avatarUrl, dashboardD
     router.refresh();
   };
 
-  const handleMarkReminderSeen = (reminderId: string) => {
-    setPendingReminderId(reminderId);
+  const handleMarkReminderSeen = (notification: DashboardData["notifications"][number]) => {
+    const notificationKey = `${notification.source}:${notification.id}`;
+    setPendingReminderId(notificationKey);
     startTransition(() => {
-      void markReminderSeenAction(reminderId).then((result) => {
+      void markNotificationSeenAction(notification.source, notification.id).then((result) => {
         setPendingReminderId(null);
         if (!result.success) {
           showToast({ type: "error", title: "Ação não concluída", description: result.message });
@@ -117,7 +120,7 @@ export function WorkspaceShell({ children, email, profile, avatarUrl, dashboardD
 
         setReadReminderIds((current) => {
           const next = new Set(current);
-          next.add(reminderId);
+          next.add(notificationKey);
           return next;
         });
         showToast({ type: "success", title: "Notificação lida", description: "Ela não contará mais como nova." });
@@ -140,7 +143,7 @@ export function WorkspaceShell({ children, email, profile, avatarUrl, dashboardD
 
         setClearedReminderIds((current) => {
           const next = new Set(current);
-          visibleNotifications.forEach((notification) => next.add(notification.id));
+          visibleNotifications.forEach((notification) => next.add(`${notification.source}:${notification.id}`));
           return next;
         });
         showToast({ type: "success", title: "Notificações limpas", description: "A central foi esvaziada sem excluir suas tarefas." });
@@ -170,7 +173,7 @@ export function WorkspaceShell({ children, email, profile, avatarUrl, dashboardD
           <div className="dashboard-actions">
             {activePopover && <button type="button" className="dashboard-popover-dismiss" aria-label="Fechar menu" onClick={() => setActivePopover(null)} />}
             <div className="dashboard-action-wrap"><button type="button" aria-label="Próximos prazos" aria-expanded={activePopover === "calendar"} onClick={() => setActivePopover((current) => current === "calendar" ? null : "calendar")}><CalendarDays size={21} /></button>{activePopover === "calendar" && <section className="dashboard-popover"><header><CalendarDays size={18} /><strong>Próximos prazos</strong></header>{dashboardData.deadlines.length === 0 ? <p>Nenhum prazo futuro cadastrado.</p> : dashboardData.deadlines.map((deadline) => <div className="dashboard-popover-item" key={deadline.id}><span><strong>{deadline.name}</strong><small>{deadline.clientName}</small></span><time>{dateFormatter.format(new Date(`${deadline.deadline}T12:00:00Z`))}</time></div>)}</section>}</div>
-            <div className="dashboard-action-wrap"><button type="button" aria-label="Notificações" aria-expanded={activePopover === "notifications"} className={unreadNotificationsCount ? "has-badge" : ""} onClick={() => setActivePopover((current) => current === "notifications" ? null : "notifications")}><Bell size={21} />{unreadNotificationsCount > 0 && <span>{unreadNotificationsCount}</span>}</button>{activePopover === "notifications" && <section className="dashboard-popover dashboard-reminders-popover"><header><div><Bell size={18} /><strong>Notificações</strong></div><span>{unreadNotificationsCount} {unreadNotificationsCount === 1 ? "nova" : "novas"}</span></header>{visibleNotifications.length === 0 ? <p>Nenhuma notificação pendente.</p> : <><div className="dashboard-notification-tools"><small>{visibleNotifications.length} {visibleNotifications.length === 1 ? "item na central" : "itens na central"}</small><button type="button" onClick={handleClearNotifications} disabled={isClearingNotifications}><Trash2 size={14} />{isClearingNotifications ? "Limpando..." : "Limpar notificações"}</button></div><div className="dashboard-reminders-popover-list">{visibleNotifications.map((notification) => { const isRead = Boolean(notification.readAt || readReminderIds.has(notification.id)); return <article className={`dashboard-reminder-card ${isRead ? "is-read" : ""}`} key={notification.id}><div className="dashboard-reminder-card-icon">{isRead ? <CheckCircle2 size={17} /> : <Bell size={17} />}</div><div className="dashboard-reminder-card-content"><div><strong>{notification.title}</strong><time>{timeFormatter.format(new Date(notification.scheduledAt))}</time></div><p>{notification.projectName ?? "Tarefa geral"}{notification.clientName ? ` · ${notification.clientName}` : ""}</p><span>{isRead ? "Lida" : reminderKindLabels[notification.kind] ?? "Tarefa"}</span></div><button type="button" onClick={() => handleMarkReminderSeen(notification.id)} disabled={isRead || pendingReminderId === notification.id}><CheckCircle2 size={16} />{isRead ? "Lida" : pendingReminderId === notification.id ? "Marcando..." : "Marcar como lida"}</button></article>; })}</div></>}</section>}</div>
+            <div className="dashboard-action-wrap"><button type="button" aria-label="Notificações" aria-expanded={activePopover === "notifications"} className={unreadNotificationsCount ? "has-badge" : ""} onClick={() => setActivePopover((current) => current === "notifications" ? null : "notifications")}><Bell size={21} />{unreadNotificationsCount > 0 && <span>{unreadNotificationsCount}</span>}</button>{activePopover === "notifications" && <section className="dashboard-popover dashboard-reminders-popover"><header><div><Bell size={18} /><strong>Notificações</strong></div><span>{unreadNotificationsCount} {unreadNotificationsCount === 1 ? "nova" : "novas"}</span></header>{visibleNotifications.length === 0 ? <p>Nenhuma notificação pendente.</p> : <><div className="dashboard-notification-tools"><small>{visibleNotifications.length} {visibleNotifications.length === 1 ? "item na central" : "itens na central"}</small><button type="button" onClick={handleClearNotifications} disabled={isClearingNotifications}><Trash2 size={14} />{isClearingNotifications ? "Limpando..." : "Limpar notificações"}</button></div><div className="dashboard-reminders-popover-list">{visibleNotifications.map((notification) => { const notificationKey = `${notification.source}:${notification.id}`; const isRead = Boolean(notification.readAt || readReminderIds.has(notificationKey)); return <article className={`dashboard-reminder-card ${isRead ? "is-read" : ""}`} key={notificationKey}><div className="dashboard-reminder-card-icon">{isRead ? <CheckCircle2 size={17} /> : <Bell size={17} />}</div><div className="dashboard-reminder-card-content"><div><strong>{notification.title}</strong><time>{timeFormatter.format(new Date(notification.scheduledAt))}</time></div><p>{notification.source === "obligation" ? "Obrigação recorrente" : notification.projectName ?? "Tarefa geral"}{notification.clientName ? ` · ${notification.clientName}` : ""}</p><span>{isRead ? "Lida" : reminderKindLabels[notification.kind] ?? "Tarefa"}</span></div><button type="button" onClick={() => handleMarkReminderSeen(notification)} disabled={isRead || pendingReminderId === notificationKey}><CheckCircle2 size={16} />{isRead ? "Lida" : pendingReminderId === notificationKey ? "Marcando..." : "Marcar como lida"}</button></article>; })}</div></>}</section>}</div>
             <div className="dashboard-user"><span className={avatarUrl ? "has-image" : ""} style={avatarUrl ? { backgroundImage: `url(${avatarUrl})` } : undefined}>{!avatarUrl && getInitials(displayName)}</span><div><strong>{displayName}</strong><small>{profile?.company_name || "Designer Freelancer"}</small></div></div>
             <button type="button" className="dashboard-logout" onClick={() => setShowLogoutConfirmation(true)} aria-label="Sair"><LogOut size={19} /></button>
           </div>
