@@ -3,7 +3,7 @@
 import { startTransition, useEffect, useMemo, useOptimistic, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Bell, BriefcaseBusiness, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, ClipboardList, Crown, Folder, Home, LogOut, Search, Settings, Trash2, UsersRound } from "lucide-react";
+import { Bell, BriefcaseBusiness, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, ClipboardList, CreditCard, Crown, Home, LogOut, Search, Settings, Trash2, UsersRound } from "lucide-react";
 import { clearNotificationsAction, markNotificationSeenAction } from "@/app/dashboard/actions";
 import { BrandLogo } from "@/components/ui/brand-logo";
 import { showToast } from "@/components/ui/toast-provider";
@@ -18,7 +18,7 @@ const navigation = [
   { label: "Projetos", icon: BriefcaseBusiness, href: "/dashboard/projetos", available: true },
   { label: "Agenda", icon: CalendarDays, href: "/dashboard/agenda", available: true },
   { label: "Obrigações", icon: ClipboardList, href: "/dashboard/obrigacoes", available: true },
-  { label: "Materiais", icon: Folder, href: "/dashboard/materiais", available: false },
+  { label: "Financeiro", icon: CreditCard, href: "/dashboard/financeiro", available: true },
   { label: "Configurações", icon: Settings, href: "/dashboard/configuracoes", available: false },
 ];
 
@@ -84,6 +84,7 @@ export function WorkspaceShell({ children, email, profile, avatarUrl, dashboardD
     router.prefetch("/dashboard/projetos");
     router.prefetch("/dashboard/agenda");
     router.prefetch("/dashboard/obrigacoes");
+    router.prefetch("/dashboard/financeiro");
   }, [router]);
 
   useEffect(() => {
