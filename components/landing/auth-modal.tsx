@@ -36,6 +36,8 @@ type PasswordFieldProps = {
   required?: boolean;
 };
 
+const DASHBOARD_PATH = "/dashboard";
+
 const legalContent = {
   terms: {
     title: "Termos de Uso",
@@ -143,6 +145,10 @@ function getAuthErrorMessage(message: string): string {
   return "Não foi possível concluir a autenticação agora. Tente novamente em instantes.";
 }
 
+function didSupabaseReturnExistingUser(user: { identities?: unknown[] | null } | null): boolean {
+  return Boolean(user && Array.isArray(user.identities) && user.identities.length === 0);
+}
+
 function getFeedbackTitle(type: AuthFeedback["type"]): string {
   if (type === "success") return "Tudo certo";
   if (type === "error") return "Ação não concluída";
@@ -202,7 +208,8 @@ export function AuthModal({ isOpen, mode, onClose, onModeChange }: AuthModalProp
     if (!supabase) {
       notify({
         type: "error",
-        text: "Configuração do Supabase não encontrada. Confira NEXT_PUBLIC_SUPABASE_URL e NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY no .env.",
+        title: "Supabase não configurado",
+        text: "Confira NEXT_PUBLIC_SUPABASE_URL e NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY no .env e reinicie o servidor.",
       });
       return;
     }
@@ -235,9 +242,9 @@ export function AuthModal({ isOpen, mode, onClose, onModeChange }: AuthModalProp
         if (error) {
           if (error.code === "email_not_confirmed") {
             notify({
-              type: "info",
+              type: "error",
               title: "Confirme seu e-mail",
-              text: "Sua conta já foi criada, mas ainda precisa ser ativada pelo link enviado ao seu e-mail.",
+              text: "O Supabase ainda está exigindo confirmação por e-mail para esta conta. Confirme o e-mail ou desative essa opção no painel para testes.",
             });
           } else {
             notify({ type: "error", text: getAuthErrorMessage(error.message) });
@@ -245,9 +252,10 @@ export function AuthModal({ isOpen, mode, onClose, onModeChange }: AuthModalProp
           return;
         }
 
-        notify({ type: "success", text: "Login realizado com sucesso. Sua sessão já está ativa neste navegador." });
+        notify({ type: "success", text: "Login realizado com sucesso." });
         onClose();
-        router.replace("/dashboard");
+        router.replace(DASHBOARD_PATH);
+        router.refresh();
         return;
       }
 
@@ -281,6 +289,7 @@ export function AuthModal({ isOpen, mode, onClose, onModeChange }: AuthModalProp
         email,
         password,
         options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback?next=${DASHBOARD_PATH}`,
           data: {
             full_name: fullName,
             company_name: companyName || null,
@@ -290,6 +299,26 @@ export function AuthModal({ isOpen, mode, onClose, onModeChange }: AuthModalProp
 
       if (error) {
         notify({ type: "error", text: getAuthErrorMessage(error.message) });
+        return;
+      }
+
+      if (didSupabaseReturnExistingUser(data.user)) {
+        notify({
+          type: "error",
+          title: "E-mail já cadastrado",
+          text: "Essa conta já existe. Use a aba Entrar para acessar com sua senha.",
+        });
+        onModeChange("login");
+        return;
+      }
+
+      if (data.user && !data.session) {
+        notify({
+          type: "error",
+          title: "Confirmação de e-mail ativa",
+          text: "A conta foi criada, mas o Supabase ainda está bloqueando o acesso até a confirmação por e-mail. Desative Confirm email para testes.",
+        });
+        onModeChange("login");
         return;
       }
 
@@ -314,9 +343,10 @@ export function AuthModal({ isOpen, mode, onClose, onModeChange }: AuthModalProp
         }
       }
 
-      notify({ type: "success", text: "Conta criada com sucesso. Sua sessão já está ativa neste navegador." });
+      notify({ type: "success", text: "Conta criada com sucesso." });
       onClose();
-      router.replace("/dashboard");
+      router.replace(DASHBOARD_PATH);
+      router.refresh();
     } finally {
       setIsSubmitting(false);
     }
@@ -336,7 +366,10 @@ export function AuthModal({ isOpen, mode, onClose, onModeChange }: AuthModalProp
   };
 
   const changeMode = (nextMode: AuthMode) => {
+    setIsSubmitting(false);
     setIsPasswordFocused(false);
+    setSignupPassword("");
+    setPasswordConfirmation("");
     onModeChange(nextMode);
   };
 
