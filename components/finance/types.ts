@@ -9,6 +9,9 @@ export type Payment = {
   clientId: string;
   projectId: string;
   clientName: string;
+  clientLogoUrl?: string | null;
+  clientPhone?: string | null;
+  clientWhatsapp?: string | null;
   projectName: string;
   description: string;
   type: PaymentType;
@@ -21,6 +24,8 @@ export type Payment = {
 export type FinanceClientOption = {
   id: string;
   name: string;
+  phone?: string | null;
+  whatsapp?: string | null;
 };
 
 export type FinanceProjectOption = {
@@ -63,4 +68,11 @@ export const paymentTypeLabels: Record<PaymentType, string> = {
   final_payment: "Saldo final",
   installment: "Parcela",
   extra: "Extra",
+};
+
+export const paymentTypeUseCases: Record<PaymentType, string> = {
+  deposit: "Entrada inicial para liberar ou iniciar o projeto.",
+  installment: "Pagamento intermediário planejado, útil para contratos parcelados.",
+  final_payment: "Saldo de encerramento, normalmente ligado à entrega final.",
+  extra: "Valor adicional fora do escopo original, como ajuste ou demanda extra.",
 };

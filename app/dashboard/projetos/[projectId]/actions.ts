@@ -25,6 +25,13 @@ function getCurrencyValue(value: string) {
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
 }
 
+function getPaymentType(value: string) {
+  if (value === "deposit") return "deposit";
+  if (value === "final_payment") return "final_payment";
+  if (value === "extra") return "extra";
+  return "installment";
+}
+
 async function projectBelongsToUser(projectId: string, ownerId: string) {
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase.from("projects").select("id").eq("owner_id", ownerId).eq("id", projectId).maybeSingle<{ id: string }>();
@@ -257,6 +264,7 @@ export async function createPaymentAction(_state: DetailActionState, formData: F
   const projectId = getValue(formData, "project_id");
   const budgetId = getValue(formData, "budget_id");
   const description = getValue(formData, "description");
+  const paymentType = getPaymentType(getValue(formData, "payment_type"));
   const amount = getCurrencyValue(getValue(formData, "amount"));
   const dueDate = getValue(formData, "due_date");
   const receipt = formData.get("receipt");
@@ -289,6 +297,7 @@ export async function createPaymentAction(_state: DetailActionState, formData: F
     project_id: projectId,
     budget_id: isValidUuid(budgetId) ? budgetId : null,
     description,
+    payment_type: paymentType,
     amount,
     due_date: dueDate,
     status: "pending",

@@ -1,18 +1,23 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element */
+
 import { AlertTriangle, Banknote, CalendarDays, FileCheck2, TrendingUp } from "lucide-react";
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { createFinancePaymentAction } from "@/app/dashboard/financeiro/actions";
+import { createFinanceChargeReminderAction, createFinancePaymentAction, deleteFinancePaymentAction, markFinancePaymentPaidAction } from "@/app/dashboard/financeiro/actions";
 import { showToast } from "@/components/ui/toast-provider";
 import type { FinanceData } from "@/lib/finance/data";
+import { DeletePaymentDialog } from "./delete-payment-dialog";
 import { FinanceFilters } from "./finance-filters";
 import { FinanceMonthSummary } from "./finance-month-summary";
 import { FinancePageHeader } from "./finance-page-header";
+import { FinanceQuickActions } from "./finance-quick-actions";
 import { FinanceSummaryCard } from "./finance-summary-card";
 import { addDays, currencyFormatter, formatDate, getInitials, isCurrentMonth, shortCurrencyFormatter, sumPayments } from "./finance-utils";
 import { NewPaymentDialog } from "./new-payment-dialog";
 import { PaymentsTable } from "./payments-table";
+import { PaymentDetailsDialog } from "./payment-details-dialog";
 import { PaymentStatusBadge } from "./payment-status-badge";
 import { UpcomingPaymentsPanel } from "./upcoming-payments-panel";
 import { paymentTypeLabels, type FinanceFiltersState, type FinanceSummary, type Payment } from "./types";
@@ -82,11 +87,11 @@ function createSummaries(payments: Payment[], today: string, approvedBudgets: Fi
   ];
 }
 
-function PaymentCard({ payment }: { payment: Payment }) {
+function PaymentCard({ payment, onViewDetails }: { payment: Payment; onViewDetails: (payment: Payment) => void }) {
   return (
-    <article className="finance-payment-card">
+    <article className="finance-payment-card is-clickable" role="button" tabIndex={0} onClick={() => onViewDetails(payment)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") onViewDetails(payment); }}>
       <header>
-        <span className="finance-client-avatar">{getInitials(payment.clientName)}</span>
+        {payment.clientLogoUrl ? <img className="finance-client-logo" src={payment.clientLogoUrl} alt={`Logo de ${payment.clientName}`} /> : <span className="finance-client-avatar">{getInitials(payment.clientName)}</span>}
         <div>
           <h3>{payment.clientName}</h3>
           <p>{payment.projectName}</p>
@@ -108,6 +113,8 @@ export function FinancePageContent({ data, today }: { data: FinanceData; today: 
   const [isPending, startTransition] = useTransition();
   const [filters, setFilters] = useState<FinanceFiltersState>(defaultFilters);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
+  const [deletingPayment, setDeletingPayment] = useState<Payment | null>(null);
   const payments = data.payments;
 
   const filteredPayments = useMemo(() => {
@@ -145,6 +152,55 @@ export function FinancePageContent({ data, today }: { data: FinanceData; today: 
     });
   };
 
+  const handleMarkAsPaid = (payment: Payment) => {
+    startTransition(() => {
+      void markFinancePaymentPaidAction(payment.id).then((result) => {
+        showToast({
+          type: result.success ? "success" : "error",
+          title: result.success ? "Recebimento atualizado" : "Ação não concluída",
+          description: result.message,
+        });
+
+        if (result.success) {
+          setSelectedPayment(null);
+          router.refresh();
+        }
+      });
+    });
+  };
+
+  const handleDeletePayment = (payment: Payment) => {
+    startTransition(() => {
+      void deleteFinancePaymentAction(payment.id).then((result) => {
+        showToast({
+          type: result.success ? "success" : "error",
+          title: result.success ? "Recebimento excluído" : "Ação não concluída",
+          description: result.message,
+        });
+
+        if (result.success) {
+          setSelectedPayment(null);
+          setDeletingPayment(null);
+          router.refresh();
+        }
+      });
+    });
+  };
+
+  const handleCreateReminder = (formData: FormData) => {
+    startTransition(() => {
+      void createFinanceChargeReminderAction(formData).then((result) => {
+        showToast({
+          type: result.success ? "success" : "error",
+          title: result.success ? "Lembrete criado" : "Ação não concluída",
+          description: result.message,
+        });
+
+        if (result.success) router.refresh();
+      });
+    });
+  };
+
   return (
     <div className="finance-page">
       <FinancePageHeader onCreate={() => setIsCreateOpen(true)} />
@@ -157,23 +213,16 @@ export function FinancePageContent({ data, today }: { data: FinanceData; today: 
 
       <div className="finance-main-grid">
         <div>
-          <PaymentsTable payments={filteredPayments} />
+          <PaymentsTable payments={filteredPayments} isPending={isPending} onViewDetails={setSelectedPayment} onMarkAsPaid={handleMarkAsPaid} onDelete={setDeletingPayment} />
           <section className="finance-payment-card-list" aria-label="Recebimentos em cards">
-            {filteredPayments.map((payment) => <PaymentCard key={payment.id} payment={payment} />)}
+            {filteredPayments.map((payment) => <PaymentCard key={payment.id} payment={payment} onViewDetails={setSelectedPayment} />)}
             {filteredPayments.length === 0 && <p className="finance-empty-card">Nenhum recebimento encontrado.</p>}
           </section>
         </div>
         <aside className="finance-side-column">
-          <UpcomingPaymentsPanel payments={payments} />
+          <FinanceQuickActions payments={payments} clients={data.clients} projects={data.projects} today={today} isPending={isPending} onCreateReminder={handleCreateReminder} />
           <FinanceMonthSummary payments={monthPayments} />
-          <section className="finance-side-card">
-            <header><h2>Ações rápidas</h2></header>
-            <div className="finance-quick-actions">
-              <button type="button">Gerar lembrete de cobrança</button>
-              <button type="button">Criar mensagem para WhatsApp</button>
-              <button type="button" disabled>Exportar relatório em breve</button>
-            </div>
-          </section>
+          <UpcomingPaymentsPanel payments={payments} />
         </aside>
       </div>
 
@@ -184,6 +233,23 @@ export function FinancePageContent({ data, today }: { data: FinanceData; today: 
           isPending={isPending}
           onClose={() => setIsCreateOpen(false)}
           onCreate={handleCreatePayment}
+        />
+      )}
+      {selectedPayment && (
+        <PaymentDetailsDialog
+          payment={selectedPayment}
+          isPending={isPending}
+          onClose={() => setSelectedPayment(null)}
+          onMarkAsPaid={() => handleMarkAsPaid(selectedPayment)}
+          onDelete={() => setDeletingPayment(selectedPayment)}
+        />
+      )}
+      {deletingPayment && (
+        <DeletePaymentDialog
+          payment={deletingPayment}
+          isPending={isPending}
+          onClose={() => !isPending && setDeletingPayment(null)}
+          onConfirm={() => handleDeletePayment(deletingPayment)}
         />
       )}
     </div>

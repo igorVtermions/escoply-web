@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
-import { paymentStatusLabels, paymentTypeLabels, type FinanceClientOption, type FinanceProjectOption } from "./types";
+import { paymentStatusLabels, paymentTypeLabels, paymentTypeUseCases, type FinanceClientOption, type FinanceProjectOption, type PaymentType } from "./types";
 
 type NewPaymentDialogProps = {
   clients: FinanceClientOption[];
@@ -15,6 +15,7 @@ type NewPaymentDialogProps = {
 
 export function NewPaymentDialog({ clients, projects, isPending, onClose, onCreate }: NewPaymentDialogProps) {
   const [selectedClientId, setSelectedClientId] = useState(clients[0]?.id ?? "all");
+  const [selectedType, setSelectedType] = useState<PaymentType>("installment");
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
@@ -80,9 +81,10 @@ export function NewPaymentDialog({ clients, projects, isPending, onClose, onCrea
           <div className="finance-dialog-grid">
             <label className="finance-dialog-field">
               <span>Tipo</span>
-              <select name="type" defaultValue="installment" disabled>
+              <select name="type" value={selectedType} onChange={(event) => setSelectedType(event.target.value as PaymentType)}>
                 {Object.entries(paymentTypeLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
               </select>
+              <small className="finance-type-help">{paymentTypeUseCases[selectedType]}</small>
             </label>
             <label className="finance-dialog-field">
               <span>Status</span>
