@@ -2,6 +2,7 @@ import "server-only";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { ProjectStatus, ProjectWorkType } from "@/lib/projects/data";
+import type { PaymentType } from "@/components/finance/types";
 
 export type ProjectDetailData = {
   id: string;
@@ -47,6 +48,7 @@ export type ProjectDetailData = {
   payments: Array<{
     id: string;
     description: string;
+    type: PaymentType;
     dueDate: string;
     amount: number;
     status: string;
@@ -128,6 +130,7 @@ type ReminderRow = {
 type PaymentRow = {
   id: string;
   description: string;
+  payment_type: string | null;
   due_date: string;
   amount: number | string;
   status: string;
@@ -176,6 +179,19 @@ function toNumber(value: number | string) {
   return typeof value === "number" ? value : Number(value);
 }
 
+function inferPaymentType(description: string): PaymentType {
+  const normalized = description.toLowerCase();
+  if (normalized.includes("sinal") || normalized.includes("entrada")) return "deposit";
+  if (normalized.includes("saldo") || normalized.includes("final")) return "final_payment";
+  if (normalized.includes("parcela")) return "installment";
+  return "extra";
+}
+
+function toPaymentType(value: string | null, description: string): PaymentType {
+  if (value === "deposit" || value === "final_payment" || value === "installment" || value === "extra") return value;
+  return inferPaymentType(description);
+}
+
 export async function getProjectDetailData({ ownerId, projectId }: { ownerId: string; projectId: string }): Promise<ProjectDetailData | null> {
   const supabase = await createSupabaseServerClient();
   const projectResult = await supabase
@@ -192,7 +208,7 @@ export async function getProjectDetailData({ ownerId, projectId }: { ownerId: st
   const [budgetResult, remindersResult, paymentsResult, scopeResult, approvalsResult, materialsResult, profileResult] = await Promise.all([
     supabase.from("budgets").select("id, amount, status, valid_until, payment_condition").eq("owner_id", ownerId).eq("project_id", projectId).order("created_at", { ascending: false }).limit(1).maybeSingle<BudgetRow>(),
     supabase.from("reminders").select("id, title, kind, scheduled_at").eq("owner_id", ownerId).eq("project_id", projectId).is("completed_at", null).order("scheduled_at").limit(6).overrideTypes<ReminderRow[]>(),
-    supabase.from("payments").select("id, description, due_date, amount, status, paid_at, receipt_path, receipt_file_name, receipt_mime_type, receipt_file_size").eq("owner_id", ownerId).eq("project_id", projectId).order("due_date").overrideTypes<PaymentRow[]>(),
+    supabase.from("payments").select("id, description, payment_type, due_date, amount, status, paid_at, receipt_path, receipt_file_name, receipt_mime_type, receipt_file_size").eq("owner_id", ownerId).eq("project_id", projectId).order("due_date").overrideTypes<PaymentRow[]>(),
     supabase.from("project_scope_items").select("id, title, position, completed_at").eq("owner_id", ownerId).eq("project_id", projectId).order("position").overrideTypes<ScopeItemRow[]>(),
     supabase.from("project_approvals").select("id, title, note, status, approved_at, created_at").eq("owner_id", ownerId).eq("project_id", projectId).order("created_at").overrideTypes<ApprovalRow[]>(),
     supabase.from("project_materials").select("id, kind, title, url, file_path, file_size, mime_type, note, created_at").eq("owner_id", ownerId).eq("project_id", projectId).order("created_at", { ascending: false }).overrideTypes<MaterialRow[]>(),
@@ -273,6 +289,7 @@ export async function getProjectDetailData({ ownerId, projectId }: { ownerId: st
     payments: (paymentsResult.data ?? []).map((payment) => ({
       id: payment.id,
       description: payment.description,
+      type: toPaymentType(payment.payment_type, payment.description),
       dueDate: payment.due_date,
       amount: toNumber(payment.amount),
       status: payment.status,

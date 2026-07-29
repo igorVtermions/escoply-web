@@ -19,7 +19,7 @@ const navigation = [
   { label: "Agenda", icon: CalendarDays, href: "/dashboard/agenda", available: true },
   { label: "Obrigações", icon: ClipboardList, href: "/dashboard/obrigacoes", available: true },
   { label: "Financeiro", icon: CreditCard, href: "/dashboard/financeiro", available: true },
-  { label: "Configurações", icon: Settings, href: "/dashboard/configuracoes", available: false },
+  { label: "Configurações", icon: Settings, href: "/dashboard/configuracoes", available: true },
 ];
 
 const dateFormatter = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" });
@@ -85,6 +85,7 @@ export function WorkspaceShell({ children, email, profile, avatarUrl, dashboardD
     router.prefetch("/dashboard/agenda");
     router.prefetch("/dashboard/obrigacoes");
     router.prefetch("/dashboard/financeiro");
+    router.prefetch("/dashboard/configuracoes");
   }, [router]);
 
   useEffect(() => {

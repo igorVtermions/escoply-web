@@ -737,7 +737,7 @@
 
 .project-detail-payments > div {
   display: grid;
-  grid-template-columns: 1.35fr .8fr .8fr .75fr .75fr .8fr .8fr;
+  grid-template-columns: 1.35fr .68fr .78fr .78fr .72fr .85fr .78fr .8fr;
   gap: .75rem;
   align-items: center;
   min-height: 2.45rem;
@@ -754,6 +754,36 @@
 
 .project-detail-payments strong {
   color: #071542;
+}
+
+.project-detail-payment-type {
+  width: max-content;
+  padding: .23rem .42rem;
+  border-radius: .35rem;
+  color: #2563eb;
+  background: #eef4ff;
+  font-size: .56rem;
+  font-weight: 850;
+}
+
+.project-detail-payment-type.is-deposit {
+  color: #6d28d9;
+  background: #f0eaff;
+}
+
+.project-detail-payment-type.is-installment {
+  color: #d97706;
+  background: #fff3df;
+}
+
+.project-detail-payment-type.is-final_payment {
+  color: #123a9c;
+  background: #e8f0ff;
+}
+
+.project-detail-payment-type.is-extra {
+  color: #15803d;
+  background: #e8f8ed;
 }
 
 .project-detail-payments em {
