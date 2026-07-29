@@ -1,4 +1,4 @@
-import type { NotificationPreferences, ProfessionalProfile, UserPreferences, UserProfile } from "./types";
+import type { ProfessionalProfile, UserProfile } from "./types";
 
 export const mockUserProfile: UserProfile = {
   name: "Igor Franco",
@@ -18,22 +18,4 @@ export const mockProfessionalProfile: ProfessionalProfile = {
   instagram: "@escoply",
   linkedin: "linkedin.com/in/igorfranco",
   whatsapp: "(11) 99999-9999",
-};
-
-export const mockPreferences: UserPreferences = {
-  theme: "system",
-  currency: "BRL",
-  dateFormat: "dd/MM/yyyy",
-  startPage: "dashboard",
-  language: "pt-BR",
-  density: "comfortable",
-};
-
-export const mockNotifications: NotificationPreferences = {
-  dailyReminders: true,
-  upcomingDeadlines: true,
-  overduePayments: true,
-  pendingBudgets: true,
-  recurringObligations: true,
-  weeklySummary: false,
 };

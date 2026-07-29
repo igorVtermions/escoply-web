@@ -1,7 +1,6 @@
 export type SettingsTab =
   | "profile"
   | "professional"
-  | "preferences"
   | "notifications"
   | "plan"
   | "security"
@@ -29,15 +28,6 @@ export type ProfessionalProfile = {
   instagram?: string;
   linkedin?: string;
   whatsapp?: string;
-};
-
-export type UserPreferences = {
-  theme: "system" | "light" | "dark";
-  currency: "BRL" | "USD" | "EUR";
-  dateFormat: "dd/MM/yyyy" | "MM/dd/yyyy" | "yyyy-MM-dd";
-  startPage: "dashboard" | "projects" | "reminders";
-  language: "pt-BR" | "en-US";
-  density: "comfortable" | "compact";
 };
 
 export type NotificationPreferences = {

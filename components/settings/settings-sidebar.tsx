@@ -1,12 +1,11 @@
 "use client";
 
-import { Bell, BriefcaseBusiness, CreditCard, Database, HelpCircle, Info, LockKeyhole, PlugZap, Settings2, SlidersHorizontal, UserRound } from "lucide-react";
+import { Bell, BriefcaseBusiness, CreditCard, Database, Info, LockKeyhole, MessageCircle, PlugZap, Settings2, UserRound } from "lucide-react";
 import type { SettingsTab } from "./types";
 
 const settingsItems: Array<{ id: SettingsTab; label: string; badge?: string; icon: typeof UserRound }> = [
   { id: "profile", label: "Perfil", icon: UserRound },
   { id: "professional", label: "Profissional", icon: BriefcaseBusiness },
-  { id: "preferences", label: "Preferências", icon: SlidersHorizontal },
   { id: "notifications", label: "Notificações", icon: Bell },
   { id: "plan", label: "Plano", icon: CreditCard },
   { id: "security", label: "Segurança", icon: LockKeyhole },
@@ -32,9 +31,15 @@ export function SettingsSidebar({ activeTab, onChange }: { activeTab: SettingsTa
       </nav>
       <article className="settings-help-card">
         <Settings2 size={18} />
-        <strong>Precisa de ajuda?</strong>
-        <p>Fale com o suporte ou consulte nossa central de ajuda.</p>
-        <button type="button"><HelpCircle size={14} /> Abrir ajuda</button>
+        <strong>Canal de feedback</strong>
+        <p>Encontrou um problema ou tem uma sugestÃ£o? Envie direto para o responsÃ¡vel pelo produto.</p>
+        <a
+          href="https://wa.me/5521974885166?text=Ol%C3%A1%2C%20tenho%20um%20feedback%20sobre%20o%20Escoply%3A"
+          target="_blank"
+          rel="noreferrer"
+        >
+          <MessageCircle size={14} /> Enviar feedback
+        </a>
       </article>
     </aside>
   );
