@@ -166,7 +166,7 @@ export function WorkspaceShell({ children, email, profile, avatarUrl, dashboardD
             return <Link key={item.href} href={item.href} prefetch className={isActive ? "active" : ""} aria-current={isActive ? "page" : undefined} title={isSidebarCollapsed ? item.label : undefined} onClick={() => startTransition(() => setOptimisticPath(item.href))}><Icon size={20} /><span>{item.label}</span></Link>;
           })}
         </nav>
-        <div className="dashboard-plan-card"><Crown size={18} /><strong>Plano Profissional</strong><span>Seu plano está ativo</span><div className="dashboard-plan-progress"><i /></div><p>7 de 10 projetos</p><button type="button">Ver plano</button></div>
+        <div className="dashboard-plan-card"><Crown size={18} /><strong>Plano Profissional</strong><span>Seu plano está ativo</span><div className="dashboard-plan-progress"><i /></div><p>7 de 10 projetos</p><Link href="/dashboard/configuracoes?tab=plan">Ver plano</Link></div>
       </aside>
 
       <section className="dashboard-main">
