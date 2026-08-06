@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Building2, Check, Eye, EyeOff, ImagePlus, LockKeyhole, Mail, UserRound, X } from "lucide-react";
+import { ArrowRight, Building2, Check, Eye, EyeOff, ImagePlus, LockKeyhole, Mail, ShieldAlert, UserRound, X } from "lucide-react";
 import { getSupabaseBrowserClient, setAuthPersistence } from "@/lib/supabase/client";
 import { showToast } from "@/components/ui/toast-provider";
 import styles from "./auth-modal.module.css";
@@ -37,6 +37,7 @@ type PasswordFieldProps = {
 };
 
 const DASHBOARD_PATH = "/dashboard";
+const ADMIN_PATH = "/admin";
 
 const legalContent = {
   terms: {
@@ -159,6 +160,16 @@ function isValidEmail(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
+async function getPostLoginResult(supabase: NonNullable<ReturnType<typeof getSupabaseBrowserClient>>, userId: string) {
+  const { data, error } = await supabase.from("profiles").select("role, status").eq("id", userId).maybeSingle<{ role: string | null; status: string | null }>();
+
+  if (error) return { path: DASHBOARD_PATH, status: "active" };
+  return {
+    path: data?.role === "admin" && data.status === "active" ? ADMIN_PATH : DASHBOARD_PATH,
+    status: data?.status ?? "active",
+  };
+}
+
 export function AuthModal({ isOpen, mode, onClose, onModeChange }: AuthModalProps) {
   const router = useRouter();
   const closeButtonRef = useRef<HTMLButtonElement>(null);
@@ -169,6 +180,7 @@ export function AuthModal({ isOpen, mode, onClose, onModeChange }: AuthModalProp
   const [profileImage, setProfileImage] = useState("");
   const [profileFile, setProfileFile] = useState<File | null>(null);
   const [legalDocument, setLegalDocument] = useState<LegalDocument | null>(null);
+  const [blockedAccountEmail, setBlockedAccountEmail] = useState("");
   const [isPasswordFocused, setIsPasswordFocused] = useState(false);
 
   const passwordChecks = [
@@ -189,7 +201,10 @@ export function AuthModal({ isOpen, mode, onClose, onModeChange }: AuthModalProp
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
       if (legalDocument) setLegalDocument(null);
-      else onClose();
+      else {
+        setBlockedAccountEmail("");
+        onClose();
+      }
     };
 
     window.addEventListener("keydown", handleKeyDown);
@@ -200,6 +215,11 @@ export function AuthModal({ isOpen, mode, onClose, onModeChange }: AuthModalProp
   }, [isOpen, legalDocument, onClose]);
 
   if (!isOpen || typeof document === "undefined") return null;
+
+  const handleClose = () => {
+    setBlockedAccountEmail("");
+    onClose();
+  };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -237,7 +257,7 @@ export function AuthModal({ isOpen, mode, onClose, onModeChange }: AuthModalProp
       if (mode === "login") {
         setAuthPersistence(formData.get("remember") === "on");
         setIsSubmitting(true);
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
         if (error) {
           if (error.code === "email_not_confirmed") {
@@ -252,9 +272,17 @@ export function AuthModal({ isOpen, mode, onClose, onModeChange }: AuthModalProp
           return;
         }
 
+        const loginResult = data.user ? await getPostLoginResult(supabase, data.user.id) : { path: DASHBOARD_PATH, status: "active" };
+
+        if (loginResult.status === "blocked") {
+          await supabase.auth.signOut();
+          setBlockedAccountEmail(email);
+          return;
+        }
+
         notify({ type: "success", text: "Login realizado com sucesso." });
         onClose();
-        router.replace(DASHBOARD_PATH);
+        router.replace(loginResult.path);
         router.refresh();
         return;
       }
@@ -370,6 +398,7 @@ export function AuthModal({ isOpen, mode, onClose, onModeChange }: AuthModalProp
     setIsPasswordFocused(false);
     setSignupPassword("");
     setPasswordConfirmation("");
+    setBlockedAccountEmail("");
     onModeChange(nextMode);
   };
 
@@ -428,17 +457,28 @@ export function AuthModal({ isOpen, mode, onClose, onModeChange }: AuthModalProp
 
   return createPortal(
     <>
-      <div className={`auth-overlay ${styles.overlay}`} role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+      <div className={`auth-overlay ${styles.overlay}`} role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) handleClose(); }}>
         <section className={`auth-modal ${styles.modal}`} style={{ display: "block", gridTemplateColumns: "none" }} role="dialog" aria-modal="true" aria-labelledby="auth-title">
           <div className={`auth-content ${styles.content}`}>
             <div key={mode} className="auth-content-panel">
-            <button ref={closeButtonRef} type="button" className="auth-close" onClick={onClose} aria-label="Fechar modal"><X size={20} /></button>
+            <button ref={closeButtonRef} type="button" className="auth-close" onClick={handleClose} aria-label="Fechar modal"><X size={20} /></button>
 
             <div className={`auth-tabs ${mode === "signup" ? "is-signup" : "is-login"}`} role="tablist" aria-label="Acesso à conta">
               <button type="button" role="tab" aria-selected={mode === "login"} className={mode === "login" ? "is-active" : ""} onClick={() => changeMode("login")}>Entrar</button>
               <button type="button" role="tab" aria-selected={mode === "signup"} className={mode === "signup" ? "is-active" : ""} onClick={() => changeMode("signup")}>Criar conta</button>
             </div>
 
+            {blockedAccountEmail ? (
+              <div className="banned-account-panel">
+                <span><ShieldAlert size={24} /></span>
+                <small>Usuário banido</small>
+                <h2 id="auth-title">Seu acesso ao Escoply foi bloqueado.</h2>
+                <p>A conta <strong>{blockedAccountEmail}</strong> está banida. Entre em contato com o suporte para contestar o bloqueio ou solicitar uma revisão.</p>
+                <a href={`mailto:igorviniciusf10@gmail.com?subject=${encodeURIComponent("Contestação de bloqueio Escoply")}&body=${encodeURIComponent(`Olá, gostaria de contestar o bloqueio da conta ${blockedAccountEmail}.`)}`}>Contestar bloqueio</a>
+                <button type="button" onClick={() => setBlockedAccountEmail("")}>Tentar outra conta</button>
+              </div>
+            ) : (
+              <>
             <div style={{ marginTop: "1.25rem" }}>
               <p className="text-sm font-semibold text-secondary-dark">{mode === "login" ? "Bem-vindo de volta" : "Comece gratuitamente"}</p>
               <h2 id="auth-title" className="mt-1 text-2xl font-bold tracking-tight text-ink sm:text-3xl">{mode === "login" ? "Acesse sua conta" : "Crie sua conta Escoply"}</h2>
@@ -509,6 +549,8 @@ export function AuthModal({ isOpen, mode, onClose, onModeChange }: AuthModalProp
                 {!isSubmitting && <ArrowRight size={18} />}
               </button>
             </form>
+              </>
+            )}
             </div>
           </div>
         </section>

@@ -412,3 +412,106 @@ button, a { -webkit-tap-highlight-color: transparent; }
   html { scroll-behavior: auto; }
   .button-interactive::before { display: none; }
 }
+
+.banned-account-modal,
+.banned-account-panel {
+  display: grid;
+  justify-items: center;
+  text-align: center;
+}
+
+.banned-account-modal {
+  position: relative;
+  width: min(100%, 31rem);
+  border: 1px solid rgba(255, 255, 255, .65);
+  border-radius: 1.45rem;
+  background: #fff;
+  padding: 2rem;
+  box-shadow: 0 34px 100px -24px rgba(4, 19, 66, .68);
+  animation: auth-modal-in 460ms var(--ease-out-smooth) both;
+}
+
+.banned-account-modal > button {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  display: grid;
+  width: 2.35rem;
+  height: 2.35rem;
+  place-items: center;
+  border-radius: .72rem;
+  color: #64748b;
+  background: #f1f5f9;
+}
+
+.banned-account-modal > span,
+.banned-account-panel > span {
+  display: grid;
+  width: 3.8rem;
+  height: 3.8rem;
+  place-items: center;
+  border-radius: 1rem;
+  color: #ef4444;
+  background: #fee2e2;
+}
+
+.banned-account-modal small,
+.banned-account-panel small {
+  margin-top: 1rem;
+  color: #ef4444;
+  font-size: .7rem;
+  font-weight: 850;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.banned-account-modal h2,
+.banned-account-panel h2 {
+  margin-top: .45rem;
+  color: #0f172a;
+  font-size: 1.55rem;
+  font-weight: 850;
+  line-height: 1.12;
+  letter-spacing: -.04em;
+}
+
+.banned-account-modal p,
+.banned-account-panel p {
+  margin-top: .8rem;
+  color: #64748b;
+  font-size: .85rem;
+  line-height: 1.65;
+}
+
+.banned-account-modal a,
+.banned-account-panel a,
+.banned-account-panel button {
+  display: inline-flex;
+  min-height: 2.85rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: .78rem;
+  font-size: .78rem;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.banned-account-modal a,
+.banned-account-panel a {
+  margin-top: 1.25rem;
+  width: 100%;
+  color: #fff;
+  background: linear-gradient(110deg, #071e63, #6d28d9);
+}
+
+.banned-account-panel {
+  margin-top: 1.3rem;
+}
+
+.banned-account-panel button {
+  margin-top: .7rem;
+  width: 100%;
+  border: 1px solid #dbe4f0;
+  color: #071e63;
+  background: #fff;
+}
