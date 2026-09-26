@@ -1,5 +1,6 @@
-import { Bot, Mail, MessageCircle, PlugZap, Triangle } from "lucide-react";
+import { Bot, ChevronDown, Mail, MessageCircle, PlugZap, Triangle } from "lucide-react";
 import { GooglePanel } from "@/components/google/google-panel";
+import { CalendarLogo } from "@/components/google/google-agenda-button";
 import type { GoogleStatus } from "@/lib/google/model";
 import { SettingsSectionShell } from "./settings-section-shell";
 
@@ -13,7 +14,15 @@ const integrations = [
 export function IntegrationsSettings({ googleStatus }: { googleStatus: GoogleStatus }) {
   return (
     <SettingsSectionShell icon={PlugZap} title="Integrações" description="Conecte os serviços que fazem parte da sua rotina.">
-      <GooglePanel status={googleStatus} />
+      <details className="google-settings-disclosure">
+        <summary>
+          <CalendarLogo/>
+          <span className="google-settings-name"><strong>Google Agenda e Tasks</strong><small>{googleStatus.email || "Conecte sua agenda e suas tarefas"}</small></span>
+          <span className={`google-settings-status ${googleStatus.connected ? "is-connected" : "is-disconnected"}`}><i aria-hidden="true"/>{googleStatus.connected ? "Conectado" : "Desconectado"}</span>
+          <span className="google-settings-toggle"><span className="google-settings-expand">Expandir</span><span className="google-settings-collapse">Recolher</span><ChevronDown size={18}/></span>
+        </summary>
+        <GooglePanel status={googleStatus} />
+      </details>
       <div className="settings-integration-grid">
         {integrations.map((integration) => {
           const Icon = integration.icon;

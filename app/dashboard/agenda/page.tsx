@@ -71,10 +71,11 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
   const selectedDate = isValidDateKey(rawDate) ? rawDate : getTodayKey();
   const agendaRange = getCalendarRange(selectedDate, calendarMode);
 
-  const [agendaData, tasksData] = await Promise.all([
+  const [agendaData, tasksData, googleStatus] = await Promise.all([
     getAgendaData(user.id, agendaRange),
     getTasksData({ ownerId: user.id, search, kind, status, period }),
+    getGoogleStatus(),
   ]);
 
-  return <AgendaSection googleStatus={await getGoogleStatus()} agendaData={agendaData} tasksData={tasksData} initialView={view} initialCalendarMode={calendarMode} selectedDate={selectedDate} filters={{ search, kind, status, period }} />;
+  return <AgendaSection googleStatus={googleStatus} agendaData={agendaData} tasksData={tasksData} initialView={view} initialCalendarMode={calendarMode} selectedDate={selectedDate} filters={{ search, kind, status, period }} />;
 }

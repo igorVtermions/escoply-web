@@ -4,7 +4,7 @@ import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { GooglePanel } from "./google-panel";
 import type { GoogleStatus } from "@/lib/google/model";
-function CalendarLogo() {
+export function CalendarLogo() {
     return <svg width="28" height="28" viewBox="0 0 48 48" aria-hidden="true"><path fill="#4285f4" d="M6 6h36v28l-8 8H6z"/><path fill="#fff" d="M13 13h22v22H13z"/><path fill="#34a853" d="M13 35h22v7H13z"/><path fill="#fbbc04" d="M35 13h7v21l-7 1z"/><path fill="#ea4335" d="M35 35h7l-7 7z"/><path fill="#188038" d="M6 35h7v7H6z"/><text x="24" y="29" textAnchor="middle" fill="#4285f4" fontSize="16" fontWeight="600" fontFamily="Arial,sans-serif">31</text></svg>;
 }
 function IntegrationDialog({ status, close }: { status: GoogleStatus; close: () => void }) {

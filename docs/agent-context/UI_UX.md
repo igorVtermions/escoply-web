@@ -2,6 +2,22 @@
 
 ## Estado real do sistema visual
 
+Configurações → Integrações: Google aparece em card recolhido por padrão com ícone, conta e status verde/vermelho. Disclosure nativo permite expandir/recolher as opções com teclado. Header mantém ações à direita com margem de 12px.
+
+Header do workspace sem busca global: notificações, perfil e saída permanecem alinhados à direita. Buscas específicas dos módulos permanecem nas respectivas páginas.
+
+Drawer mobile: X centralizado com grid; abertura e fechamento de 320ms com fade do backdrop. O diálogo mantém foco e bloqueio de scroll até terminar a saída. Movimento reduzido fecha imediatamente.
+
+Navegação até 820px: botão de menu no cabeçalho azul abre drawer modal com todas as rotas da sidebar. Usa portal e diálogo nativo para foco, Escape, backdrop e bloqueio de scroll; fecha ao navegar ou retornar ao desktop. Labels permanecem visíveis mesmo se a sidebar desktop estava recolhida.
+
+Sidebar: o card demonstrativo Plano Profissional, incluindo progresso e botão Ver plano, foi removido do shell.
+
+Barra superior: removido o atalho de calendário/Próximos prazos. Notificações permanecem na topbar e Agenda continua disponível na navegação lateral.
+
+A troca de período não exibe a frase “Carregando atividades deste período” nem reserva espaço para ela. A grade mantém animação, opacidade de carregamento e `aria-busy`.
+
+Navegação da agenda: data exibida usa `useOptimistic` durante a troca de período, sem aguardar o servidor para mover a grade. Atividades do período anterior são ocultadas durante carregamento, com status acessível. Animação direcional de 180ms respeita movimento reduzido e não muda o scroll.
+
 Kanban: `tasks-heading-actions` agrupa Novo compromisso e Nova tarefa horizontalmente, com gap e quebra em telas estreitas. O botão de compromisso não é duplicado na barra Google nessa visualização.
 
 Atualização Google (26/09/2026): a agenda mostra somente botão Google Agenda com ícone/status verde ou vermelho e Novo compromisso no padrão de Nova tarefa. Configuração detalhada fica em modal nativo com portal, título acessível, foco restaurado e Escape bloqueado durante processamento. Prévia de histórico e preferências de envio automático ficam dentro desse modal e em Configurações → Integrações. CSS em `google.css`; validação visual autenticada pendente.

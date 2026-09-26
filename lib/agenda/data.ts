@@ -144,7 +144,7 @@ export async function getAgendaData(ownerId: string, range: AgendaRange): Promis
   const today = getTodayInSaoPaulo();
   const nextWeek = addDays(today, 7);
 
-  const [remindersResult, obligationsResult, projectsResult, budgetsResult, paymentsResult] = await Promise.all([
+  const [remindersResult, obligationsResult, projectsResult, budgetsResult, paymentsResult, eventsResult] = await Promise.all([
     supabase
       .from("reminders")
       .select("id, title, kind, scheduled_at, completed_at, task_status, projects(id, name, deadline, progress, clients(name, company_name))")
@@ -193,6 +193,7 @@ export async function getAgendaData(ownerId: string, range: AgendaRange): Promis
       .order("due_date")
       .limit(180)
       .overrideTypes<PaymentRow[]>(),
+    supabase.from("calendar_events").select("*").eq("owner_id",ownerId).lt("starts_at",`${addDays(range.endDate,1)}T00:00:00-03:00`).gt("ends_at",`${range.startDate}T00:00:00-03:00`).order("starts_at").limit(1000),
   ]);
 
   const failedResult = [remindersResult, obligationsResult, projectsResult, budgetsResult, paymentsResult].find((result) => result.error);
@@ -319,7 +320,6 @@ export async function getAgendaData(ownerId: string, range: AgendaRange): Promis
     receiptUrl: item.receipt_path ? receiptUrlMap.get(item.receipt_path) ?? null : null,
   }));
 
-  const eventsResult = await supabase.from("calendar_events").select("*").eq("owner_id",ownerId).lt("starts_at",`${addDays(range.endDate,1)}T00:00:00-03:00`).gt("ends_at",`${range.startDate}T00:00:00-03:00`).order("starts_at").limit(1000);
   if(eventsResult.error && !["42P01","PGRST205"].includes(eventsResult.error.code)) throw eventsResult.error;
   const eventItems: AgendaItem[] = ((eventsResult.data ?? []) as CalendarEventRow[]).map(event=>({
     id:event.id,title:event.title,date:event.starts_at,end:event.ends_at,allDay:event.all_day,event,kind:"appointment",status:"info",rawStatus:null,

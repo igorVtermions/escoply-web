@@ -76,6 +76,42 @@ Informe a próxima atividade relacionada.
 
 ## Registros
 
+## 2026-09-26 — Integração Google compacta nas configurações
+
+Painel Google passou a abrir recolhido, com ícone compartilhado, conta, status conectado/desconectado e controle de expandir/recolher. Preservadas opções e processamento existentes. Ajustada margem direita das ações do header para 12px conforme solicitação anterior.
+
+## 2026-09-26 — Remoção da busca do header
+
+Removido o campo de busca global e a indicação de atalho do cabeçalho do workspace. Ações restantes alinhadas à direita; buscas dos módulos preservadas.
+
+## 2026-09-26 — Animação do menu mobile
+
+Centralizado o ícone X e adicionadas transições suaves de entrada/saída do drawer e backdrop. Fechamento por botão, Escape, toque fora ou navegação aguarda a animação; preferência por movimento reduzido é respeitada.
+
+## 2026-09-26 — Navegação lateral disponível no mobile
+
+O CSS ocultava a navegação abaixo de 820px sem oferecer substituto. Adicionado botão de menu no cabeçalho e drawer acessível com as mesmas rotas, estado ativo, fechamento ao navegar/Escape/backdrop, restauração de foco e scroll. Sidebar desktop preservada; animação respeita movimento reduzido.
+
+## 2026-09-26 — Remoção do card de plano da sidebar
+
+Removido o card demonstrativo Plano Profissional, seu progresso fixo e botão Ver plano da barra lateral, conforme solicitado.
+
+## 2026-09-26 — Remoção do calendário da navbar
+
+Removidos o botão de calendário da barra superior e seu popover de próximos prazos. Mantidos notificações e acesso à Agenda pela sidebar; removidos estado e formatador exclusivos do popover.
+
+## 2026-09-26 — Remoção do texto de carregamento da agenda
+
+Removida a frase de carregamento abaixo dos filtros e seu espaço reservado, conforme solicitado. Preservados animação, navegação otimista e estado `aria-busy` da grade.
+
+## 2026-09-26 — README atualizado com agenda e Google
+
+README passou a documentar modal da integração, envio automático local, histórico seletivo, projeções de prazos e navegação otimista da agenda. Inclui variáveis sem valores secretos, callback OAuth, migrations necessárias e comando de testes. Diferencia funcionalidades implementadas de importação automática/recorrência ainda pendentes, sem presumir deploy da versão atual. Alteração somente documental.
+
+## 2026-09-26 — Resposta imediata ao navegar na agenda
+
+Título e grade do período usam atualização otimista junto à navegação Next, com carregamento explícito das atividades e animação direcional de 180ms. Sem deslocamento de scroll, respeitando movimento reduzido. Consultas de Google e compromissos foram paralelizadas com as leituras existentes. Agrupamento converte a data de cada tarefa uma vez, em vez de repetir para todas as células do mês. Não houve alteração de dados nem medição de latência em navegador autenticado.
+
 ## 2026-09-26 — Ações do Kanban alinhadas
 
 Novo compromisso e Nova tarefa compartilham o grupo de ações do cabeçalho do Kanban, lado a lado com quebra responsiva quando faltar espaço. A visualização Calendário mantém sua ação própria. TasksSection aceita ações adicionais sem duplicar a lógica de criação de tarefas.

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useOptimistic, useState, useTransition } from "react";
 import { GoogleAgendaButton } from "@/components/google/google-agenda-button";
 import { EventEditor } from "@/components/google/event-editor";
 import { saoDate, type GoogleStatus } from "@/lib/google/model";
@@ -353,12 +353,12 @@ function WeekCalendar({ dateKey, itemsByDate, onSelect }: { dateKey: string; ite
   );
 }
 
-function DayCalendar({ dateKey, itemsByDate, onSelect }: { dateKey: string; itemsByDate: Map<string, AgendaItem[]>; onSelect: (item: AgendaItem) => void }) {
+function DayCalendar({ dateKey, itemsByDate, onSelect, loading = false }: { dateKey: string; itemsByDate: Map<string, AgendaItem[]>; onSelect: (item: AgendaItem) => void; loading?: boolean }) {
   const dayItems = itemsByDate.get(dateKey) ?? [];
 
   return (
     <section className="agenda-calendar day" aria-label="Calendário diário">
-      <header><h2>{longDateFormatter.format(toUtcDate(dateKey))}</h2><span>{dayItems.length} {dayItems.length === 1 ? "atividade" : "atividades"}</span></header>
+      <header><h2>{longDateFormatter.format(toUtcDate(dateKey))}</h2><span>{loading ? "Carregando atividades…" : `${dayItems.length} ${dayItems.length === 1 ? "atividade" : "atividades"}`}</span></header>
       <div className="agenda-day-schedule">
         <div className="google-all-day">{dayItems.filter(item=>item.allDay).map(item=><CalendarEventChip key={item.id} item={item} onSelect={onSelect}/>)}</div>
         {calendarHours.map((hour) => {
@@ -375,7 +375,9 @@ function DayCalendar({ dateKey, itemsByDate, onSelect }: { dateKey: string; item
   );
 }
 
-export function AgendaSection({ googleStatus, agendaData, tasksData, initialView, initialCalendarMode, selectedDate, filters }: AgendaSectionProps) {
+export function AgendaSection({ googleStatus, agendaData, tasksData, initialView, initialCalendarMode, selectedDate: loadedDate, filters }: AgendaSectionProps) {
+  const [selectedDate, setSelectedDate] = useOptimistic(loadedDate);
+  const [direction, setDirection] = useState<"next" | "previous">("next");
   const [createEvent,setCreateEvent] = useState(false);
   const router = useRouter();
   const [view, setView] = useState<AgendaView>(initialView);
@@ -384,7 +386,8 @@ export function AgendaSection({ googleStatus, agendaData, tasksData, initialView
   const [kind, setKind] = useState<AgendaItemKind | "all">("all");
   const [status, setStatus] = useState<AgendaItemStatus | "all">("all");
   const [selectedItem, setSelectedItem] = useState<AgendaItem | null>(null);
-  const [, startTransition] = useTransition();
+  const [isNavigating, startTransition] = useTransition();
+  const loadingPeriod = isNavigating && (selectedDate !== loadedDate || calendarMode !== initialCalendarMode);
 
   const filteredItems = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase();
@@ -398,16 +401,24 @@ export function AgendaSection({ googleStatus, agendaData, tasksData, initialView
 
   const itemsByDate = useMemo(() => {
     const map = new Map<string, AgendaItem[]>();
+    if (loadingPeriod) return map;
+    const dates = calendarMode === "month" ? getMonthDays(selectedDate) : calendarMode === "week" ? getWeekDays(selectedDate) : [selectedDate];
+    const visibleDays = new Set(dates);
+    const boundaries = dates.map(date => ({ date, start: Date.parse(`${date}T00:00:00-03:00`), end: Date.parse(`${addDays(date,1)}T00:00:00-03:00`) }));
     filteredItems.forEach((item) => {
-      const dates = calendarMode === "month" ? getMonthDays(selectedDate) : calendarMode === "week" ? getWeekDays(selectedDate) : [selectedDate];
-      for(const date of dates) {
-        const overlaps = item.event ? new Date(item.date).getTime() < Date.parse(`${addDays(date,1)}T00:00:00-03:00`) && new Date(item.end!).getTime() > Date.parse(`${date}T00:00:00-03:00`) : getDateKey(item.date) === date;
-        if(overlaps) map.set(date, [...map.get(date) ?? [], item]);
+      if (!item.event) {
+        const day = getDateKey(item.date);
+        if (visibleDays.has(day)) map.set(day, [...map.get(day) ?? [], item]);
+        return;
+      }
+      const start = Date.parse(item.date), end = Date.parse(item.end!);
+      for(const day of boundaries) {
+        if(start < day.end && end > day.start) map.set(day.date, [...map.get(day.date) ?? [], item]);
       }
     });
     map.forEach((items) => items.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()));
     return map;
-  }, [filteredItems,calendarMode,selectedDate]);
+  }, [filteredItems,calendarMode,selectedDate,loadingPeriod]);
 
   const replaceAgendaUrl = (updates: { nextView?: AgendaView; nextMode?: CalendarMode; nextDate?: string }) => {
     const nextView = updates.nextView ?? view;
@@ -418,7 +429,10 @@ export function AgendaSection({ googleStatus, agendaData, tasksData, initialView
     else params.set("visualizacao", nextView);
     params.set("modo", nextMode);
     params.set("data", nextDate);
-    startTransition(() => router.replace(`/dashboard/agenda?${params}`));
+    startTransition(() => {
+      setSelectedDate(nextDate);
+      router.replace(`/dashboard/agenda?${params}`, { scroll: false });
+    });
   };
 
   const changeView = (nextView: AgendaView) => {
@@ -432,6 +446,8 @@ export function AgendaSection({ googleStatus, agendaData, tasksData, initialView
   };
 
   const goToDate = (nextDate: string) => {
+    if (nextDate === selectedDate) return;
+    setDirection(nextDate < selectedDate ? "previous" : "next");
     replaceAgendaUrl({ nextDate });
   };
 
@@ -492,9 +508,11 @@ export function AgendaSection({ googleStatus, agendaData, tasksData, initialView
             <button type="button" onClick={() => { setSearch(""); setKind("all"); setStatus("all"); }}>Limpar filtros</button>
           </section>
 
+          <div key={`${calendarMode}-${selectedDate}`} className={`agenda-period-transition is-${direction}`} aria-busy={loadingPeriod}>
           {calendarMode === "month" && <MonthCalendar dateKey={selectedDate} itemsByDate={itemsByDate} onSelect={setSelectedItem} />}
           {calendarMode === "week" && <WeekCalendar dateKey={selectedDate} itemsByDate={itemsByDate} onSelect={setSelectedItem} />}
-          {calendarMode === "day" && <DayCalendar dateKey={selectedDate} itemsByDate={itemsByDate} onSelect={setSelectedItem} />}
+          {calendarMode === "day" && <DayCalendar dateKey={selectedDate} itemsByDate={itemsByDate} onSelect={setSelectedItem} loading={loadingPeriod} />}
+          </div>
         </>
       ) : (
         <TasksSection

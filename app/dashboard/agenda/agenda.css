@@ -2,6 +2,23 @@
   padding: 1.65rem 1.9rem 2.5rem;
 }
 
+.agenda-period-transition {
+  animation: agenda-period-enter 180ms ease-out both;
+  --agenda-slide-offset: 12px;
+}
+
+.agenda-period-transition.is-previous { --agenda-slide-offset: -12px; }
+.agenda-period-transition[aria-busy="true"] .agenda-calendar { opacity: .65; }
+
+@keyframes agenda-period-enter {
+  from { opacity: .45; transform: translateX(var(--agenda-slide-offset)); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .agenda-period-transition { animation: none; }
+}
+
 .agenda-heading-row {
   display: flex;
   align-items: flex-start;
