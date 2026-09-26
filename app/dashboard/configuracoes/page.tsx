@@ -1,4 +1,5 @@
 import { SettingsPageContent } from "@/components/settings/settings-page-content";
+import { getGoogleStatus } from "@/lib/google/data";
 import { requireUser } from "@/lib/auth/session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import "./settings.css";
@@ -71,6 +72,7 @@ export default async function ConfiguracoesPage() {
 
   return (
     <SettingsPageContent
+      googleStatus={await getGoogleStatus()}
       profile={{
         name: profile?.full_name ?? fallbackName,
         email,

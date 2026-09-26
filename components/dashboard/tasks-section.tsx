@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useEffect, useMemo, useOptimistic, useState, useTransition, type FormEvent } from "react";
+import { TaskEditForm } from "@/components/google/task-edit-form";
+import { useActionState, useEffect, useMemo, useOptimistic, useState, useTransition, type FormEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, CalendarDays, CheckCircle2, Clock3, ExternalLink, MoreHorizontal, Plus, RotateCcw, Search, Trash2, X } from "lucide-react";
@@ -20,6 +21,7 @@ type TasksSectionProps = {
   basePath?: string;
   title?: string;
   description?: string;
+  additionalActions?: ReactNode;
 };
 
 type TaskColumnId = "overdue" | "todo" | "in_progress" | "completed" | "paused";
@@ -83,7 +85,7 @@ function getColumnLabel(column: TaskColumnId) {
 }
 
 function getFullDate(task: TaskItem) {
-  return fullDateFormatter.format(new Date(task.scheduledAt));
+  return task.undated ? "Sem data" : fullDateFormatter.format(new Date(task.scheduledAt));
 }
 
 function TaskMiniChart({ tone }: { tone: "blue" | "red" | "green" | "purple" | "slate" }) {
@@ -217,13 +219,14 @@ function TaskDetailModal({ task, isPending, onClose, onToggle, onDelete }: { tas
 
         <section className="tasks-detail-grid" aria-label="Detalhes da tarefa">
           <div><small>Data</small><strong>{getFullDate(task)}</strong></div>
-          <div><small>Horário</small><strong>{timeFormatter.format(new Date(task.scheduledAt))}</strong></div>
+          <div><small>Horário</small><strong>{task.undated ? "Sem horário" : timeFormatter.format(new Date(task.scheduledAt))}</strong></div>
           <div><small>Cliente</small><strong>{task.clientName ?? "Não vinculado"}</strong></div>
           <div><small>Projeto</small><strong>{task.projectName ?? "Não vinculado"}</strong></div>
           <div><small>Status Kanban</small><strong>{getColumnLabel(task.bucket)}</strong></div>
           <div><small>Conclusão</small><strong>{task.completedAt ? fullDateFormatter.format(new Date(task.completedAt)) : "Ainda não concluída"}</strong></div>
         </section>
 
+        <TaskEditForm task={task} onSaved={onClose} />
         <footer className="tasks-detail-actions">
           {projectHref && <a href={projectHref}><ExternalLink size={16} /> Abrir projeto</a>}
           <button type="button" onClick={() => onToggle(task)} disabled={isPending}>{task.completedAt ? <RotateCcw size={16} /> : <CheckCircle2 size={16} />}{task.completedAt ? "Reabrir tarefa" : "Concluir tarefa"}</button>
@@ -235,7 +238,7 @@ function TaskDetailModal({ task, isPending, onClose, onToggle, onDelete }: { tas
   );
 }
 
-export function TasksSection({ data, filters, basePath = "/dashboard/tarefas", title = "Tarefas", description = "Organize prazos, cobranças, follow-ups e obrigações importantes." }: TasksSectionProps) {
+export function TasksSection({ data, filters, additionalActions, basePath = "/dashboard/tarefas", title = "Tarefas", description = "Organize prazos, cobranças, follow-ups e obrigações importantes." }: TasksSectionProps) {
   const router = useRouter();
   const [search, setSearch] = useState(filters.search);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -298,17 +301,18 @@ export function TasksSection({ data, filters, basePath = "/dashboard/tarefas", t
       return;
     }
 
+    if (column === "overdue") { setDraggedTask(null); showToast({type:"info",title:"Atraso é calculado pela data. Edite o prazo para reagendar."}); return; }
     const previousColumns = visibleColumns;
     const nextTask: TaskItem = {
       ...taskToMove,
-      bucket: column,
-      taskStatus: column === "overdue" ? "todo" : column,
+      bucket: column === "todo" && !taskToMove.undated && getDateKey(taskToMove.scheduledAt) < getTodayKey() ? "overdue" : column,
+      taskStatus: column,
       completedAt: column === "completed" ? new Date().toISOString() : null,
     };
     const nextColumns = Object.fromEntries(
       Object.entries(previousColumns).map(([key, tasks]) => [key, tasks.filter((task) => task.id !== taskToMove.id)]),
     ) as TasksData["columns"];
-    const targetKey = column === "in_progress" ? "inProgress" : column;
+    const targetKey = nextTask.bucket === "in_progress" ? "inProgress" : nextTask.bucket;
     nextColumns[targetKey].push(nextTask);
 
     setVisibleColumns(nextColumns);
@@ -335,7 +339,7 @@ export function TasksSection({ data, filters, basePath = "/dashboard/tarefas", t
           <h1>{title}</h1>
           <p>{description}</p>
         </div>
-        <button type="button" className="tasks-new-button" onClick={() => setIsCreateOpen(true)}><Plus size={19} /> Nova tarefa</button>
+        <div className="tasks-heading-actions">{additionalActions}<button type="button" className="tasks-new-button" onClick={() => setIsCreateOpen(true)}><Plus size={19} /> Nova tarefa</button></div>
       </div>
 
       <section className="tasks-stats" aria-label="Indicadores de tarefas">

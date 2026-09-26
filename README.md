@@ -32,6 +32,10 @@ Cliente → Projeto → Escopo → Orçamento → Aprovação → Entrega → Pa
 
 ## Estado atual do projeto
 
+### Contexto para agentes e colaboradores
+
+A documentação técnica detalhada começa em [`AGENTS.md`](./AGENTS.md) e no [índice de contexto](./docs/agent-context/README.md). Ela cobre produto, funcionalidades e rotas, stack, arquitetura, banco e segurança, UI/UX, componentização, processo de desenvolvimento e limitações conhecidas. Consulte a [matriz de funcionalidades](./docs/agent-context/PRODUCT.md) para distinguir implementação real, demonstração e roadmap, incluindo o painel administrativo.
+
 O projeto já evoluiu além da landing page. A aplicação possui área autenticada, integração com Supabase e módulos internos funcionais para a operação principal do freelancer.
 
 Implementado atualmente:
@@ -77,7 +81,7 @@ Ainda não implementado ou em evolução:
 
 ## Requisitos
 
-- Node.js 20 ou superior
+- Node.js 20.9 ou superior (mínimo declarado pela versão instalada do Next.js)
 - npm
 - Conta/projeto Supabase
 - Supabase CLI, quando for aplicar migrations ou functions
@@ -323,7 +327,7 @@ npx supabase db push
 
 Próximas frentes prováveis:
 
-- transformar configurações profissionais/preferências/notificações em dados reais;
+- evoluir configurações profissionais e preferências de notificações já persistidas;
 - completar integrações externas;
 - melhorar permissões e auditoria;
 - criar templates finais de e-mail;

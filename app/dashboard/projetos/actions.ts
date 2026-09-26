@@ -1,4 +1,5 @@
 "use server";
+import { scheduleGoogleSync } from "@/lib/google/schedule";
 
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth/session";
@@ -92,6 +93,7 @@ export async function createProjectAction(_state: ProjectActionState, formData: 
 
   if (error) return { success: false, message: "Não foi possível cadastrar o projeto agora." };
 
+  scheduleGoogleSync();
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/projetos");
   revalidatePath("/dashboard/clientes");
@@ -138,6 +140,7 @@ export async function updateProjectAction(formData: FormData): Promise<ProjectAc
 
   if (error || !data) return { success: false, message: "Não foi possível atualizar o projeto agora." };
 
+  scheduleGoogleSync();
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/projetos");
   revalidatePath("/dashboard/clientes");
@@ -153,6 +156,7 @@ export async function deleteProjectAction(projectId: string): Promise<ProjectAct
   const { data, error } = await supabase.from("projects").delete().eq("owner_id", user.id).eq("id", projectId).select("id").maybeSingle<{ id: string }>();
   if (error || !data) return { success: false, message: "Não foi possível excluir o projeto agora." };
 
+  scheduleGoogleSync();
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/projetos");
   revalidatePath("/dashboard/clientes");

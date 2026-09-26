@@ -50,6 +50,7 @@ export type AdminUser = {
 export type SupportTicket = {
   id: string;
   code: string;
+  userId?: string;
   type: SupportTicketType;
   subject: string;
   message: string;
@@ -59,8 +60,21 @@ export type SupportTicket = {
   priority: SupportTicketPriority;
   status: SupportTicketStatus;
   createdAt: string;
+  createdAtIso?: string;
   updatedAt: string;
+  updatedAtIso?: string;
   lastReplyAt?: string;
+  lastReplyAtIso?: string;
+  replies?: SupportTicketReply[];
+};
+
+export type SupportTicketReply = {
+  id: string;
+  authorName: string;
+  authorRole: UserRole;
+  message: string;
+  createdAt: string;
+  createdAtIso: string;
 };
 
 export type AdminLog = {

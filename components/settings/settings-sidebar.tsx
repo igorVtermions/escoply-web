@@ -10,7 +10,7 @@ const settingsItems: Array<{ id: SettingsTab; label: string; badge?: string; ico
   { id: "plan", label: "Plano", icon: CreditCard },
   { id: "security", label: "Segurança", icon: LockKeyhole },
   { id: "data", label: "Dados", icon: Database },
-  { id: "integrations", label: "Integrações", badge: "Em breve", icon: PlugZap },
+  { id: "integrations", label: "Integrações", icon: PlugZap },
   { id: "about", label: "Sobre", icon: Info },
 ];
 

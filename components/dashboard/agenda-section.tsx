@@ -1,9 +1,12 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import { GoogleAgendaButton } from "@/components/google/google-agenda-button";
+import { EventEditor } from "@/components/google/event-editor";
+import { saoDate, type GoogleStatus } from "@/lib/google/model";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, Banknote, Bell, BriefcaseBusiness, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, ClipboardList, Download, ExternalLink, FileText, Search, X } from "lucide-react";
+import { AlertTriangle, Banknote, Bell, BriefcaseBusiness, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, ClipboardList, Download, ExternalLink, FileText, Plus, Search, X } from "lucide-react";
 import { TasksSection } from "@/components/dashboard/tasks-section";
 import type { AgendaData, AgendaItem, AgendaItemKind, AgendaItemStatus } from "@/lib/agenda/data";
 import type { TaskKind, TaskPeriodFilter, TasksData, TaskStatusFilter } from "@/lib/tasks/data";
@@ -12,6 +15,7 @@ type AgendaView = "agenda" | "kanban";
 type CalendarMode = "day" | "week" | "month";
 
 type AgendaSectionProps = {
+  googleStatus: GoogleStatus;
   agendaData: AgendaData;
   tasksData: TasksData;
   initialView: AgendaView;
@@ -26,6 +30,7 @@ type AgendaSectionProps = {
 };
 
 const kindLabels: Record<AgendaItemKind, string> = {
+  appointment: "Compromisso",
   task: "Tarefa",
   obligation: "Obrigação",
   project_deadline: "Prazo de projeto",
@@ -89,7 +94,7 @@ const dayNumberFormatter = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", ti
 const timeFormatter = new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" });
 const currencyFormatter = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 
-const calendarHours = Array.from({ length: 14 }, (_, index) => index + 7);
+const calendarHours = Array.from({ length: 24 }, (_, index) => index);
 
 function getTodayKey() {
   const formatter = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit", day: "2-digit" });
@@ -144,7 +149,7 @@ function getWeekDays(dateKey: string) {
 }
 
 function getDateKey(value: string) {
-  return value.slice(0, 10);
+  return saoDate(value);
 }
 
 function getCalendarTitle(dateKey: string, mode: CalendarMode) {
@@ -163,7 +168,7 @@ function getNavigationDate(dateKey: string, mode: CalendarMode, direction: -1 | 
 }
 
 function getItemHour(item: AgendaItem) {
-  return new Date(item.date).getHours();
+  return Number(new Intl.DateTimeFormat("en-GB", {timeZone:"America/Sao_Paulo",hour:"2-digit",hourCycle:"h23"}).format(new Date(item.date)));
 }
 
 function formatDateOnly(value: string | null) {
@@ -213,7 +218,7 @@ function AgendaMetricCard({ label, value, helper, tone }: { label: string; value
 function CalendarEventChip({ item, compact = false, onSelect }: { item: AgendaItem; compact?: boolean; onSelect: (item: AgendaItem) => void }) {
   return (
     <button type="button" className={`calendar-event-chip ${item.kind} ${item.status} ${compact ? "is-compact" : ""}`} onClick={() => onSelect(item)}>
-      {!compact && <time>{timeFormatter.format(new Date(item.date))}</time>}
+      {!compact && <time>{item.allDay ? "Dia inteiro" : timeFormatter.format(new Date(item.date))}{!item.allDay && item.end ? `–${timeFormatter.format(new Date(item.end))}` : ""}</time>}
       <span>{item.title}</span>
     </button>
   );
@@ -333,11 +338,12 @@ function WeekCalendar({ dateKey, itemsByDate, onSelect }: { dateKey: string; ite
         {days.map((day) => <time className={day === today ? "is-today" : ""} key={day}>{shortWeekdayFormatter.format(toUtcDate(day))}<strong>{dayNumberFormatter.format(toUtcDate(day))}</strong></time>)}
       </div>
       <div className="agenda-week-grid">
+        <div className="google-all-day">{days.flatMap(day=>(itemsByDate.get(day)??[]).filter(item=>item.allDay).map(item=><div key={`${day}-${item.id}`}><small>{day}</small><CalendarEventChip item={item} onSelect={onSelect}/></div>))}</div>
         {calendarHours.map((hour) => (
           <div className="agenda-week-row" key={hour}>
             <time>{String(hour).padStart(2, "0")}:00</time>
             {days.map((day) => {
-              const items = (itemsByDate.get(day) ?? []).filter((item) => getItemHour(item) === hour);
+              const items = (itemsByDate.get(day) ?? []).filter((item) => !item.allDay && (getDateKey(item.date) !== day ? hour===0 : getItemHour(item) === hour));
               return <div className="agenda-week-cell" key={`${day}-${hour}`}>{items.map((item) => <CalendarEventChip key={`${item.kind}-${item.id}`} item={item} onSelect={onSelect} />)}</div>;
             })}
           </div>
@@ -354,8 +360,9 @@ function DayCalendar({ dateKey, itemsByDate, onSelect }: { dateKey: string; item
     <section className="agenda-calendar day" aria-label="Calendário diário">
       <header><h2>{longDateFormatter.format(toUtcDate(dateKey))}</h2><span>{dayItems.length} {dayItems.length === 1 ? "atividade" : "atividades"}</span></header>
       <div className="agenda-day-schedule">
+        <div className="google-all-day">{dayItems.filter(item=>item.allDay).map(item=><CalendarEventChip key={item.id} item={item} onSelect={onSelect}/>)}</div>
         {calendarHours.map((hour) => {
-          const items = dayItems.filter((item) => getItemHour(item) === hour);
+          const items = dayItems.filter((item) => !item.allDay && (getDateKey(item.date) !== dateKey ? hour===0 : getItemHour(item) === hour));
           return (
             <div className="agenda-day-slot" key={hour}>
               <time>{String(hour).padStart(2, "0")}:00</time>
@@ -368,7 +375,8 @@ function DayCalendar({ dateKey, itemsByDate, onSelect }: { dateKey: string; item
   );
 }
 
-export function AgendaSection({ agendaData, tasksData, initialView, initialCalendarMode, selectedDate, filters }: AgendaSectionProps) {
+export function AgendaSection({ googleStatus, agendaData, tasksData, initialView, initialCalendarMode, selectedDate, filters }: AgendaSectionProps) {
+  const [createEvent,setCreateEvent] = useState(false);
   const router = useRouter();
   const [view, setView] = useState<AgendaView>(initialView);
   const [calendarMode, setCalendarMode] = useState<CalendarMode>(initialCalendarMode);
@@ -391,12 +399,15 @@ export function AgendaSection({ agendaData, tasksData, initialView, initialCalen
   const itemsByDate = useMemo(() => {
     const map = new Map<string, AgendaItem[]>();
     filteredItems.forEach((item) => {
-      const date = getDateKey(item.date);
-      map.set(date, [...map.get(date) ?? [], item]);
+      const dates = calendarMode === "month" ? getMonthDays(selectedDate) : calendarMode === "week" ? getWeekDays(selectedDate) : [selectedDate];
+      for(const date of dates) {
+        const overlaps = item.event ? new Date(item.date).getTime() < Date.parse(`${addDays(date,1)}T00:00:00-03:00`) && new Date(item.end!).getTime() > Date.parse(`${date}T00:00:00-03:00`) : getDateKey(item.date) === date;
+        if(overlaps) map.set(date, [...map.get(date) ?? [], item]);
+      }
     });
     map.forEach((items) => items.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()));
     return map;
-  }, [filteredItems]);
+  }, [filteredItems,calendarMode,selectedDate]);
 
   const replaceAgendaUrl = (updates: { nextView?: AgendaView; nextMode?: CalendarMode; nextDate?: string }) => {
     const nextView = updates.nextView ?? view;
@@ -437,6 +448,10 @@ export function AgendaSection({ agendaData, tasksData, initialView, initialCalen
         </div>
       </div>
 
+      <div className="google-agenda-toolbar"><GoogleAgendaButton status={googleStatus}/>
+      {view === "agenda" && <button className="tasks-new-button" disabled={!agendaData.calendarReady} onClick={()=>setCreateEvent(true)}><Plus size={19}/>Novo compromisso</button>}</div>
+      {!agendaData.calendarReady && <p role="status">Compromissos aguardam a aplicação da migration Google.</p>}
+      {createEvent && <EventEditor date={selectedDate} onClose={()=>setCreateEvent(false)} />}
       {view === "agenda" ? (
         <>
           <section className="agenda-metrics" aria-label="Indicadores da agenda">
@@ -483,6 +498,7 @@ export function AgendaSection({ agendaData, tasksData, initialView, initialCalen
         </>
       ) : (
         <TasksSection
+          additionalActions={<button type="button" className="tasks-new-button" disabled={!agendaData.calendarReady} onClick={() => setCreateEvent(true)}><Plus size={19}/>Novo compromisso</button>}
           basePath="/dashboard/agenda"
           title="Kanban de tarefas"
           description="Arraste tarefas entre as etapas operacionais sem misturar com a visão de calendário."
@@ -490,7 +506,7 @@ export function AgendaSection({ agendaData, tasksData, initialView, initialCalen
           filters={filters}
         />
       )}
-      {selectedItem && <AgendaEventModal item={selectedItem} onClose={() => setSelectedItem(null)} />}
+      {selectedItem?.event ? <EventEditor event={selectedItem.event} date={selectedDate} onClose={()=>setSelectedItem(null)} /> : selectedItem && <AgendaEventModal item={selectedItem} onClose={() => setSelectedItem(null)} />}
     </div>
   );
 }

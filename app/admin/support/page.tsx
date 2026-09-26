@@ -2,21 +2,10 @@ import { AlertTriangle, CheckCircle2, Clock, Lightbulb, MessageSquareText } from
 import { AdminHeader } from "@/components/admin/admin-header";
 import { AdminSummaryCard } from "@/components/admin/admin-summary-card";
 import { SupportCenter } from "@/components/admin/support-center";
-import { supportTickets } from "@/data/admin-mock";
+import { getAdminSupportData } from "@/lib/admin/support";
 
-function getSupportSummary() {
-  return {
-    newTickets: supportTickets.filter((ticket) => ticket.status === "new").length,
-    openTickets: supportTickets.filter((ticket) => ticket.status === "open").length,
-    urgentTickets: supportTickets.filter((ticket) => ticket.priority === "urgent").length,
-    inProgressTickets: supportTickets.filter((ticket) => ticket.status === "in_progress").length,
-    plannedTickets: supportTickets.filter((ticket) => ticket.status === "planned").length,
-    resolvedTickets: supportTickets.filter((ticket) => ticket.status === "resolved" || ticket.status === "closed").length,
-  };
-}
-
-export default function AdminSupportPage() {
-  const summary = getSupportSummary();
+export default async function AdminSupportPage() {
+  const { tickets, summary } = await getAdminSupportData();
 
   return (
     <div className="admin-page">
@@ -31,7 +20,7 @@ export default function AdminSupportPage() {
         <AdminSummaryCard icon={CheckCircle2} label="Resolvidos" value={String(summary.resolvedTickets)} description="este mês" tone="green" />
       </section>
 
-      <SupportCenter tickets={supportTickets} />
+      <SupportCenter tickets={tickets} />
     </div>
   );
 }

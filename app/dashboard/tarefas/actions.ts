@@ -1,4 +1,5 @@
 "use server";
+import { scheduleGoogleSync } from "@/lib/google/schedule";
 
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth/session";
@@ -24,41 +25,10 @@ function getKind(value: string): TaskKind {
 }
 
 function revalidateTasks() {
+  scheduleGoogleSync();
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/tarefas");
   revalidatePath("/dashboard/agenda");
-}
-
-function getDateInSaoPaulo(daysFromToday: number) {
-  const formatter = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/Sao_Paulo",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  });
-  const baseDate = new Date();
-  baseDate.setDate(baseDate.getDate() + daysFromToday);
-  const parts = Object.fromEntries(formatter.formatToParts(baseDate).map((part) => [part.type, part.value]));
-  return `${parts.year}-${parts.month}-${parts.day}`;
-}
-
-function getTimeInSaoPaulo(value: string) {
-  const formatter = new Intl.DateTimeFormat("pt-BR", {
-    timeZone: "America/Sao_Paulo",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
-  return formatter.format(new Date(value));
-}
-
-function getTaskStatusPayload(column: "overdue" | "todo" | "in_progress" | "paused" | "completed", previousScheduledAt: string) {
-  const previousTime = getTimeInSaoPaulo(previousScheduledAt);
-  if (column === "completed") return { task_status: "completed", completed_at: new Date().toISOString() };
-  if (column === "overdue") {
-    return { task_status: "todo", completed_at: null, scheduled_at: `${getDateInSaoPaulo(-1)}T${previousTime}:00-03:00` };
-  }
-  return { task_status: column, completed_at: null, scheduled_at: `${getDateInSaoPaulo(0)}T${previousTime}:00-03:00` };
 }
 
 export async function createTaskAction(_state: TaskActionState, formData: FormData): Promise<TaskActionState> {
@@ -134,7 +104,9 @@ export async function moveTaskToColumnAction(taskId: string, column: "overdue" |
 
   if (readError || !data) return { success: false, message: "Tarefa não encontrada." };
 
-  const payload = getTaskStatusPayload(column, data.scheduled_at);
+  if (!["overdue", "todo", "in_progress", "paused", "completed"].includes(column)) return {success:false,message:"Coluna inválida."};
+  if (column === "overdue") return {success:false,message:"Atraso é calculado pela data. Edite o prazo da tarefa para reagendar."};
+  const payload = {task_status:column,completed_at:column === "completed" ? new Date().toISOString():null};
 
   const { error } = await supabase.from("reminders").update(payload).eq("owner_id", user.id).eq("id", taskId);
   if (error) return { success: false, message: "Não foi possível mover a tarefa." };

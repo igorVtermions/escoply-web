@@ -1,7 +1,15 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { Bug, Eye, Lightbulb, LockKeyhole, MessageSquareText, MoreVertical, Send, WalletCards } from "lucide-react";
+import { FormEvent, useMemo, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { Bug, Eye, Lightbulb, LockKeyhole, MessageSquareText, MoreVertical, Send, WalletCards, X } from "lucide-react";
+import {
+  createSupportTicketAction,
+  replyToSupportTicketAction,
+  updateSupportTicketStatusAction,
+  type CreateSupportTicketInput,
+} from "@/app/admin/support/actions";
+import { showToast } from "@/components/ui/toast-provider";
 import type { SupportTicket, SupportTicketPriority, SupportTicketStatus, SupportTicketType, UserPlan } from "@/types/admin";
 import { PlanBadge } from "./plan-badge";
 
@@ -65,6 +73,17 @@ const initialFilters: SupportFilters = {
   period: "month",
 };
 
+const initialTicketForm: CreateSupportTicketInput = {
+  userName: "",
+  userEmail: "",
+  userPlan: "free",
+  type: "support",
+  subject: "",
+  message: "",
+  priority: "medium",
+  status: "new",
+};
+
 function getInitials(name: string) {
   return name
     .split(" ")
@@ -89,9 +108,19 @@ function SupportPriorityBadge({ priority }: { priority: SupportTicketPriority })
 
 function matchesPeriod(ticket: SupportTicket, period: SupportPeriod) {
   if (period === "all") return true;
-  if (period === "today") return ticket.createdAt.toLowerCase().includes("hoje");
-  if (period === "week") return ticket.createdAt.toLowerCase().includes("hoje") || ticket.createdAt.toLowerCase().includes("ontem") || ticket.createdAt.includes("dias");
-  return true;
+
+  const createdAt = ticket.createdAtIso ? new Date(ticket.createdAtIso) : null;
+  if (!createdAt || Number.isNaN(createdAt.getTime())) return true;
+
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const startOfWeek = new Date(startOfToday);
+  startOfWeek.setDate(startOfWeek.getDate() - 7);
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+  if (period === "today") return createdAt >= startOfToday;
+  if (period === "week") return createdAt >= startOfWeek;
+  return createdAt >= startOfMonth;
 }
 
 function filterTickets(tickets: SupportTicket[], filters: SupportFilters) {
@@ -108,7 +137,103 @@ function filterTickets(tickets: SupportTicket[], filters: SupportFilters) {
   });
 }
 
-function SupportTicketDetail({ ticket }: { ticket: SupportTicket }) {
+function NewSupportTicketModal({
+  isPending,
+  onClose,
+  onSubmit,
+}: {
+  isPending: boolean;
+  onClose: () => void;
+  onSubmit: (input: CreateSupportTicketInput) => void;
+}) {
+  const [form, setForm] = useState<CreateSupportTicketInput>(initialTicketForm);
+
+  function updateForm<Key extends keyof CreateSupportTicketInput>(key: Key, value: CreateSupportTicketInput[Key]) {
+    setForm((current) => ({ ...current, [key]: value }));
+  }
+
+  return (
+    <div className="admin-modal-overlay" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+      <section className="admin-support-modal" role="dialog" aria-modal="true" aria-labelledby="new-support-ticket-title">
+        <button type="button" className="admin-modal-close" onClick={onClose} aria-label="Fechar novo chamado"><X size={20} /></button>
+        <span>Suporte</span>
+        <h2 id="new-support-ticket-title">Novo chamado</h2>
+        <p>Crie um chamado real na central de suporte. Ele será salvo no Supabase.</p>
+
+        <form className="admin-support-form" onSubmit={(event) => { event.preventDefault(); onSubmit(form); }}>
+          <label>
+            Nome do usuário
+            <input value={form.userName} onChange={(event) => updateForm("userName", event.target.value)} placeholder="Ex.: Lucas Almeida" required />
+          </label>
+          <label>
+            E-mail
+            <input type="email" value={form.userEmail} onChange={(event) => updateForm("userEmail", event.target.value)} placeholder="usuario@email.com" required />
+          </label>
+          <label>
+            Tipo
+            <select value={form.type} onChange={(event) => updateForm("type", event.target.value as SupportTicketType)}>
+              {Object.entries(ticketTypeLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+            </select>
+          </label>
+          <label>
+            Plano
+            <select value={form.userPlan} onChange={(event) => updateForm("userPlan", event.target.value as UserPlan)}>
+              <option value="free">Free</option>
+              <option value="starter">Starter</option>
+              <option value="pro">Pro</option>
+              <option value="ai">AI</option>
+            </select>
+          </label>
+          <label>
+            Prioridade
+            <select value={form.priority} onChange={(event) => updateForm("priority", event.target.value as SupportTicketPriority)}>
+              {Object.entries(ticketPriorityLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+            </select>
+          </label>
+          <label>
+            Status
+            <select value={form.status} onChange={(event) => updateForm("status", event.target.value as SupportTicketStatus)}>
+              {Object.entries(ticketStatusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+            </select>
+          </label>
+          <label className="span-2">
+            Assunto
+            <input value={form.subject} onChange={(event) => updateForm("subject", event.target.value)} placeholder="Ex.: Erro ao criar projeto" required />
+          </label>
+          <label className="span-2">
+            Mensagem
+            <textarea value={form.message} onChange={(event) => updateForm("message", event.target.value)} placeholder="Descreva o chamado..." required />
+          </label>
+          <div className="admin-support-form-actions">
+            <button type="button" onClick={onClose} disabled={isPending}>Cancelar</button>
+            <button type="submit" disabled={isPending}>{isPending ? "Criando..." : "Criar chamado"}</button>
+          </div>
+        </form>
+      </section>
+    </div>
+  );
+}
+
+function SupportTicketDetail({
+  ticket,
+  isPending,
+  onReply,
+  onStatusChange,
+}: {
+  ticket: SupportTicket;
+  isPending: boolean;
+  onReply: (ticketId: string, message: string) => void;
+  onStatusChange: (ticketId: string, status: SupportTicketStatus) => void;
+}) {
+  const [reply, setReply] = useState("");
+  const replies = ticket.replies ?? [];
+
+  function handleReplySubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    onReply(ticket.id, reply);
+    setReply("");
+  }
+
   return (
     <aside className="admin-support-detail">
       <header>
@@ -133,7 +258,7 @@ function SupportTicketDetail({ ticket }: { ticket: SupportTicket }) {
           <strong>{ticket.userName}</strong>
           <small>{ticket.userEmail}</small>
         </div>
-        <button type="button">Ver usuário</button>
+        {ticket.userId ? <a href={`/admin/users?usuario=${ticket.userId}`}>Ver usuário</a> : <em>Sem vínculo</em>}
       </section>
 
       <section className="admin-support-message">
@@ -151,42 +276,78 @@ function SupportTicketDetail({ ticket }: { ticket: SupportTicket }) {
           </div>
           <time>{ticket.createdAt}</time>
         </article>
-        {ticket.lastReplyAt ? (
-          <article>
-            <span>IF</span>
+        {replies.map((replyItem) => (
+          <article key={replyItem.id}>
+            <span>{getInitials(replyItem.authorName) || "AD"}</span>
             <div>
-              <strong>Igor Franco <small>(Admin)</small></strong>
-              <p>Obrigado por reportar. Estamos verificando e retornamos com uma atualização.</p>
+              <strong>{replyItem.authorName} <small>({replyItem.authorRole === "admin" ? "Admin" : "Usuário"})</small></strong>
+              <p>{replyItem.message}</p>
             </div>
-            <time>{ticket.lastReplyAt}</time>
+            <time>{replyItem.createdAt}</time>
           </article>
-        ) : null}
+        ))}
       </section>
 
-      <div className="admin-support-reply-box">
-        <textarea placeholder="Responder..." aria-label={`Responder chamado ${ticket.code}`} />
-        <button type="button"><Send size={15} /> Enviar resposta</button>
-      </div>
+      <form className="admin-support-reply-box" onSubmit={handleReplySubmit}>
+        <textarea value={reply} onChange={(event) => setReply(event.target.value)} placeholder="Responder..." aria-label={`Responder chamado ${ticket.code}`} />
+        <button type="submit" disabled={isPending || reply.trim().length < 2}><Send size={15} /> Enviar resposta</button>
+      </form>
 
       <div className="admin-support-actions">
-        <button type="button">Marcar em andamento</button>
-        <button type="button">Aguardando usuário</button>
-        <button type="button">Marcar resolvido</button>
-        <button type="button">Recusar</button>
-        <button type="button">Fechar chamado</button>
+        <button type="button" disabled={isPending} onClick={() => onStatusChange(ticket.id, "in_progress")}>Marcar em andamento</button>
+        <button type="button" disabled={isPending} onClick={() => onStatusChange(ticket.id, "waiting_user")}>Aguardando usuário</button>
+        <button type="button" disabled={isPending} onClick={() => onStatusChange(ticket.id, "resolved")}>Marcar resolvido</button>
+        <button type="button" disabled={isPending} onClick={() => onStatusChange(ticket.id, "rejected")}>Recusar</button>
+        <button type="button" disabled={isPending} onClick={() => onStatusChange(ticket.id, "closed")}>Fechar chamado</button>
       </div>
     </aside>
   );
 }
 
 export function SupportCenter({ tickets }: { tickets: SupportTicket[] }) {
+  const router = useRouter();
   const [filters, setFilters] = useState<SupportFilters>(initialFilters);
-  const filteredTickets = useMemo(() => filterTickets(tickets, filters), [tickets, filters]);
   const [selectedTicketId, setSelectedTicketId] = useState(tickets[0]?.id);
+  const [openActionsTicketId, setOpenActionsTicketId] = useState<string | null>(null);
+  const [isNewTicketModalOpen, setIsNewTicketModalOpen] = useState(false);
+  const [isPending, startTransition] = useTransition();
+  const filteredTickets = useMemo(() => filterTickets(tickets, filters), [tickets, filters]);
   const selectedTicket = filteredTickets.find((ticket) => ticket.id === selectedTicketId) ?? filteredTickets[0] ?? tickets[0];
 
   function updateFilter<Key extends keyof SupportFilters>(key: Key, value: SupportFilters[Key]) {
     setFilters((current) => ({ ...current, [key]: value }));
+  }
+
+  function runAction(action: () => Promise<void>, successMessage: string) {
+    startTransition(async () => {
+      try {
+        await action();
+        showToast({ type: "success", title: "Tudo certo", description: successMessage });
+        router.refresh();
+      } catch (error) {
+        showToast({
+          type: "error",
+          title: "Ação não concluída",
+          description: error instanceof Error ? error.message : "Não foi possível concluir a ação.",
+        });
+      }
+    });
+  }
+
+  function handleCreateTicket(input: CreateSupportTicketInput) {
+    runAction(async () => {
+      await createSupportTicketAction(input);
+      setIsNewTicketModalOpen(false);
+    }, "Chamado criado no Supabase.");
+  }
+
+  function handleStatusChange(ticketId: string, status: SupportTicketStatus) {
+    setOpenActionsTicketId(null);
+    runAction(() => updateSupportTicketStatusAction(ticketId, status), `Status alterado para ${ticketStatusLabels[status]}.`);
+  }
+
+  function handleReply(ticketId: string, message: string) {
+    runAction(() => replyToSupportTicketAction(ticketId, message), "Resposta registrada no chamado.");
   }
 
   return (
@@ -225,7 +386,7 @@ export function SupportCenter({ tickets }: { tickets: SupportTicket[] }) {
           <option value="all">Todo período</option>
         </select>
         <button type="button" className="admin-secondary-button" onClick={() => setFilters(initialFilters)}>Limpar filtros</button>
-        <button type="button" className="admin-primary-button"><MessageSquareText size={16} /> Novo chamado</button>
+        <button type="button" className="admin-primary-button" onClick={() => setIsNewTicketModalOpen(true)}><MessageSquareText size={16} /> Novo chamado</button>
       </section>
 
       <section className="admin-support-layout">
@@ -256,18 +417,48 @@ export function SupportCenter({ tickets }: { tickets: SupportTicket[] }) {
                   <td>
                     <div className="admin-support-row-actions">
                       <button type="button" aria-label={`Ver chamado ${ticket.code}`} onClick={(event) => { event.stopPropagation(); setSelectedTicketId(ticket.id); }}><Eye size={17} /></button>
-                      <button type="button" aria-label={`Ações do chamado ${ticket.code}`} onClick={(event) => event.stopPropagation()}><MoreVertical size={17} /></button>
+                      <div className="admin-support-row-menu-wrap">
+                        <button
+                          type="button"
+                          aria-label={`Ações do chamado ${ticket.code}`}
+                          aria-expanded={openActionsTicketId === ticket.id}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setOpenActionsTicketId((current) => current === ticket.id ? null : ticket.id);
+                          }}
+                        >
+                          <MoreVertical size={17} />
+                        </button>
+                        {openActionsTicketId === ticket.id && (
+                          <div className="admin-support-row-menu" onClick={(event) => event.stopPropagation()}>
+                            <button type="button" onClick={() => handleStatusChange(ticket.id, "open")}>Abrir</button>
+                            <button type="button" onClick={() => handleStatusChange(ticket.id, "in_progress")}>Em andamento</button>
+                            <button type="button" onClick={() => handleStatusChange(ticket.id, "waiting_user")}>Aguardando usuário</button>
+                            <button type="button" onClick={() => handleStatusChange(ticket.id, "planned")}>Planejar</button>
+                            <button type="button" onClick={() => handleStatusChange(ticket.id, "resolved")}>Resolver</button>
+                            <button type="button" onClick={() => handleStatusChange(ticket.id, "closed")}>Fechar</button>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
-          {filteredTickets.length === 0 ? <p className="admin-empty-state">Nenhum chamado encontrado com os filtros atuais.</p> : null}
+          {filteredTickets.length === 0 ? <p className="admin-empty-state">Nenhum chamado real encontrado no Supabase para os filtros atuais.</p> : null}
         </div>
 
-        {selectedTicket ? <SupportTicketDetail ticket={selectedTicket} /> : null}
+        {selectedTicket ? (
+          <SupportTicketDetail ticket={selectedTicket} isPending={isPending} onReply={handleReply} onStatusChange={handleStatusChange} />
+        ) : (
+          <aside className="admin-support-detail">
+            <p className="admin-empty-state">Nenhum chamado cadastrado ainda.</p>
+          </aside>
+        )}
       </section>
+
+      {isNewTicketModalOpen && <NewSupportTicketModal isPending={isPending} onClose={() => setIsNewTicketModalOpen(false)} onSubmit={handleCreateTicket} />}
     </div>
   );
 }

@@ -2,6 +2,7 @@ import "server-only";
 
 import type { AdminUser, UserPlan, UserRole, UserStatus } from "@/types/admin";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { getPendingSupportTicketsCount } from "@/lib/admin/support";
 
 type ProfileRow = {
   id: string;
@@ -317,12 +318,13 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
     color: planColors[plan],
   }));
 
-  const [clientsCount, projectsCount, paymentsCount, obligationsCount, remindersCount] = await Promise.all([
+  const [clientsCount, projectsCount, paymentsCount, obligationsCount, remindersCount, pendingSupportTickets] = await Promise.all([
     getTableCount(supabase, "clients"),
     getTableCount(supabase, "projects"),
     getTableCount(supabase, "payments"),
     getTableCount(supabase, "obligations"),
     getTableCount(supabase, "reminders"),
+    getPendingSupportTicketsCount(),
   ]);
 
   const recentPlatformRows = await Promise.all([
@@ -344,7 +346,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
     activeUsers,
     newUsersThisMonth,
     proUsers,
-    pendingSupportTickets: 0,
+    pendingSupportTickets,
     recentUsers: sortedUsers.filter((user) => user.role !== "admin").slice(0, 6),
     planDistribution,
     recentActivities: [...recentUserActivities, ...recentPlatformRows.flat()].slice(0, 6),

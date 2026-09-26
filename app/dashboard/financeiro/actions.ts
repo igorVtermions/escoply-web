@@ -1,4 +1,5 @@
 "use server";
+import { scheduleGoogleSync } from "@/lib/google/schedule";
 
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth/session";
@@ -47,6 +48,7 @@ function getPaymentType(value: string) {
 }
 
 function revalidateFinanceViews() {
+  scheduleGoogleSync();
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/agenda");
   revalidatePath("/dashboard/financeiro");

@@ -9,6 +9,18 @@
   gap: 1rem;
 }
 
+.tasks-heading-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: .75rem;
+  flex-wrap: wrap;
+}
+
+.tasks-heading-actions .tasks-new-button {
+  white-space: nowrap;
+}
+
 .tasks-heading-row h1 {
   color: #071542;
   font-size: 2rem;

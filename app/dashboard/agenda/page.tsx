@@ -1,4 +1,5 @@
 import { AgendaSection } from "@/components/dashboard/agenda-section";
+import { getGoogleStatus } from "@/lib/google/data";
 import { requireUser } from "@/lib/auth/session";
 import { getAgendaData } from "@/lib/agenda/data";
 import { getTasksData, type TaskKind, type TaskPeriodFilter, type TaskStatusFilter } from "@/lib/tasks/data";
@@ -75,5 +76,5 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
     getTasksData({ ownerId: user.id, search, kind, status, period }),
   ]);
 
-  return <AgendaSection agendaData={agendaData} tasksData={tasksData} initialView={view} initialCalendarMode={calendarMode} selectedDate={selectedDate} filters={{ search, kind, status, period }} />;
+  return <AgendaSection googleStatus={await getGoogleStatus()} agendaData={agendaData} tasksData={tasksData} initialView={view} initialCalendarMode={calendarMode} selectedDate={selectedDate} filters={{ search, kind, status, period }} />;
 }

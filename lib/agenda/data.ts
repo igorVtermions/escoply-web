@@ -1,11 +1,15 @@
 import "server-only";
+import { saoDate, type CalendarEventRow } from "@/lib/google/model";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-export type AgendaItemKind = "task" | "obligation" | "project_deadline" | "budget_validity" | "payment";
+export type AgendaItemKind = "task" | "obligation" | "project_deadline" | "budget_validity" | "payment" | "appointment";
 export type AgendaItemStatus = "pending" | "in_progress" | "completed" | "overdue" | "cancelled" | "info";
 
 export type AgendaItem = {
+  event?: CalendarEventRow;
+  allDay?: boolean;
+  end?: string;
   id: string;
   title: string;
   date: string;
@@ -27,6 +31,7 @@ export type AgendaItem = {
 };
 
 export type AgendaData = {
+  calendarReady?: boolean;
   metrics: {
     today: number;
     overdue: number;
@@ -123,7 +128,7 @@ function addDays(dateKey: string, days: number) {
 }
 
 function getDateKey(value: string) {
-  return value.slice(0, 10);
+  return saoDate(value);
 }
 
 function resolveStatus(dateKey: string, today: string, status: string | null, completedAt?: string | null): AgendaItemStatus {
@@ -314,9 +319,17 @@ export async function getAgendaData(ownerId: string, range: AgendaRange): Promis
     receiptUrl: item.receipt_path ? receiptUrlMap.get(item.receipt_path) ?? null : null,
   }));
 
-  const items = [...reminderItems, ...obligationItems, ...projectItems, ...budgetItems, ...paymentItems].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  const eventsResult = await supabase.from("calendar_events").select("*").eq("owner_id",ownerId).lt("starts_at",`${addDays(range.endDate,1)}T00:00:00-03:00`).gt("ends_at",`${range.startDate}T00:00:00-03:00`).order("starts_at").limit(1000);
+  if(eventsResult.error && !["42P01","PGRST205"].includes(eventsResult.error.code)) throw eventsResult.error;
+  const eventItems: AgendaItem[] = ((eventsResult.data ?? []) as CalendarEventRow[]).map(event=>({
+    id:event.id,title:event.title,date:event.starts_at,end:event.ends_at,allDay:event.all_day,event,kind:"appointment",status:"info",rawStatus:null,
+    amount:null,projectId:null,projectName:null,projectDeadline:null,projectProgress:null,clientName:null,clientCompanyName:null,
+    description:event.description,paymentCondition:null,paidAt:null,receiptFileName:null,receiptUrl:null,
+  }));
+  const items = [...eventItems,...reminderItems, ...obligationItems, ...projectItems, ...budgetItems, ...paymentItems].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
   return {
+    calendarReady: !eventsResult.error,
     metrics: {
       today: items.filter((item) => getDateKey(item.date) === today && item.status !== "completed" && item.status !== "cancelled").length,
       overdue: items.filter((item) => item.status === "overdue").length,

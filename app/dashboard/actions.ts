@@ -1,4 +1,5 @@
 "use server";
+import { scheduleGoogleSync } from "@/lib/google/schedule";
 
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth/session";
@@ -33,6 +34,7 @@ function getValue(formData: FormData, name: string) {
 }
 
 function revalidateDashboardSurfaces() {
+  scheduleGoogleSync();
   revalidatePath("/dashboard", "layout");
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/agenda");

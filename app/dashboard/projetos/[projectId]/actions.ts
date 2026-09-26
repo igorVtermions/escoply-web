@@ -1,4 +1,5 @@
 "use server";
+import { scheduleGoogleSync } from "@/lib/google/schedule";
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -39,6 +40,7 @@ async function projectBelongsToUser(projectId: string, ownerId: string) {
 }
 
 function revalidateProject(projectId: string) {
+  scheduleGoogleSync();
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/projetos");
   revalidatePath(`/dashboard/projetos/${projectId}`);

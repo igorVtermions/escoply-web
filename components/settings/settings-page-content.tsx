@@ -2,6 +2,7 @@
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { AboutSettings } from "./about-settings";
+import type { GoogleStatus } from "@/lib/google/model";
 import { DataSettings } from "./data-settings";
 import { IntegrationsSettings } from "./integrations-settings";
 import { NotificationsSettings } from "./notifications-settings";
@@ -15,18 +16,18 @@ import type { NotificationPreferences, ProfessionalProfile, SettingsTab, UserPro
 
 const validTabs: SettingsTab[] = ["profile", "professional", "notifications", "plan", "security", "data", "integrations", "about"];
 
-function renderSettingsTab(tab: SettingsTab, profile: UserProfile, professional: ProfessionalProfile, notifications: NotificationPreferences) {
+function renderSettingsTab(tab: SettingsTab, profile: UserProfile, professional: ProfessionalProfile, notifications: NotificationPreferences, googleStatus: GoogleStatus) {
   if (tab === "profile") return <ProfileSettings profile={profile} />;
   if (tab === "professional") return <ProfessionalSettings professional={professional} />;
   if (tab === "notifications") return <NotificationsSettings notifications={notifications} />;
   if (tab === "plan") return <PlanSettings />;
   if (tab === "security") return <SecuritySettings />;
   if (tab === "data") return <DataSettings />;
-  if (tab === "integrations") return <IntegrationsSettings />;
+  if (tab === "integrations") return <IntegrationsSettings googleStatus={googleStatus} />;
   return <AboutSettings />;
 }
 
-export function SettingsPageContent({ profile, professional, notifications }: { profile: UserProfile; professional: ProfessionalProfile; notifications: NotificationPreferences }) {
+export function SettingsPageContent({ profile, professional, notifications, googleStatus }: { googleStatus: GoogleStatus; profile: UserProfile; professional: ProfessionalProfile; notifications: NotificationPreferences }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -50,7 +51,7 @@ export function SettingsPageContent({ profile, professional, notifications }: { 
       <SettingsPageHeader />
       <div className="settings-layout">
         <SettingsSidebar activeTab={activeTab} onChange={handleTabChange} />
-        {renderSettingsTab(activeTab, profile, professional, notifications)}
+        {renderSettingsTab(activeTab, profile, professional, notifications, googleStatus)}
       </div>
     </div>
   );

@@ -2,6 +2,8 @@
 
 Toda a infraestrutura de backend do Escoply deve permanecer centralizada nesta pasta.
 
+> Este guia descreve principalmente a configuração inicial. O projeto já possui migrations adicionais de clientes, projetos, financeiro, obrigações, notificações, planos e suporte administrativo. Para o modelo atual, permissões, Storage, variáveis e limitações conhecidas, consulte [Dados e segurança](../docs/agent-context/DATA_SECURITY.md) e [Lacunas](../docs/agent-context/KNOWN_GAPS.md). A presença de uma migration local não confirma sua aplicação remota.
+
 ## Estrutura
 
 ```text

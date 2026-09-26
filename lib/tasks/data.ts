@@ -8,6 +8,9 @@ export type TaskStatusFilter = "all" | "overdue" | TaskKanbanStatus;
 export type TaskPeriodFilter = "all" | "week" | "month";
 
 export type TaskItem = {
+  undated?: boolean;
+  notes?: string;
+  updatedAt?: string;
   id: string;
   title: string;
   kind: TaskKind;
@@ -143,7 +146,11 @@ export async function getTasksData({
   if (remindersResult.error) throw remindersResult.error;
   if (projectsResult.error) throw projectsResult.error;
 
+  const extras = await supabase.from("reminders").select("id,google_undated,google_notes,updated_at").eq("owner_id",ownerId).in("id",(remindersResult.data ?? []).map(row=>row.id));
+  if(extras.error && !["42703","PGRST204"].includes(extras.error.code)) throw extras.error;
+  const extraMap = new Map((extras.data ?? []).map(row=>[row.id,row]));
   const allTasks = (remindersResult.data ?? []).map((row): TaskItem => ({
+    undated:extraMap.get(row.id)?.google_undated,notes:extraMap.get(row.id)?.google_notes,updatedAt:extraMap.get(row.id)?.updated_at,
     id: row.id,
     title: row.title,
     kind: row.kind,
@@ -153,7 +160,7 @@ export async function getTasksData({
     projectId: row.project_id,
     projectName: row.projects?.name ?? null,
     clientName: row.projects?.clients?.name ?? null,
-    bucket: getBucket(row, today),
+    bucket: extraMap.get(row.id)?.google_undated && !row.completed_at && (!row.task_status || row.task_status === "todo") ? "todo" : getBucket(row, today),
   }));
 
   const normalizedSearch = search.trim().toLowerCase();

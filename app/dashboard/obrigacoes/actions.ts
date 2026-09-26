@@ -1,4 +1,5 @@
 "use server";
+import { scheduleGoogleSync } from "@/lib/google/schedule";
 
 import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth/session";
@@ -48,6 +49,7 @@ function parseAmount(value: string) {
 }
 
 function revalidateObligations() {
+  scheduleGoogleSync();
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/agenda");
   revalidatePath("/dashboard/obrigacoes");
