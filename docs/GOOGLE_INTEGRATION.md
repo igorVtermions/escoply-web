@@ -35,13 +35,13 @@ O cliente Supabase privilegiado é usado somente depois de validar usuário aute
 - Tarefa sem data usa `google_undated` e uma data sentinela distante no campo legado obrigatório, exibida como Sem data no Kanban. Não gera vencimento atual. Essa compatibilidade evita tornar `scheduled_at` anulável em todos os módulos nesta entrega. Datas/hora do projeto legado ainda requerem revisão se uma tarefa vinculada tiver a data removida.
 - Mover coluna não muda mais o prazo. Atraso é derivado; soltar em Atrasadas orienta editar a data.
 - Ao editar compromisso, é possível manter os lembretes vindos do Google, usar o padrão da agenda, remover ou substituir por um aviso popup. O Google entrega esses alertas conforme as preferências do usuário/dispositivo; não é um serviço de push próprio do Escoply.
-- Desconectar revoga a autorização, remove o token criptografado e preserva registros/vínculos. Não apaga os eventos no Google.
+- Desde 29/09/2026, desconectar remove a credencial local da Agenda/Tasks e preserva registros/vínculos. Não revoga a autorização Google inteira, porque isso também afetaria o Drive. A UI orienta a revogação completa nas conexões da conta Google. Não apaga os eventos no Google. Ver [Drive](GOOGLE_DRIVE.md).
 
 ## Sincronização e segurança
 
 `lib/google/` concentra modelo, mapeamento da API, cliente, criptografia, leitura segura e motor. Actions ficam em `app/dashboard/configuracoes/google-actions.ts`; callback em `app/api/integrations/google/callback/route.ts`.
 
-OAuth usa state aleatório com hash no banco, cookie HttpOnly SameSite=Lax, validade de dez minutos, consumo único vinculado à sessão e PKCE S256. O refresh token é criptografado por AES-256-GCM com proprietário como dado autenticado. Access tokens existem apenas durante a requisição. Nenhum token é retornado ao client ou impresso em logs.
+OAuth usa state aleatório com hash no banco, cookie HttpOnly SameSite=Lax, validade de dez minutos, consumo único vinculado à sessão e PKCE S256. O refresh token é criptografado por AES-256-GCM com proprietário como dado autenticado. Tokens da Agenda/Tasks ficam no servidor. O Picker do Drive obtém seu próprio token temporário restrito a arquivos no navegador, sem persistência ou logs. A migration Drive acrescenta o propósito ao estado; ela deve anteceder a publicação desta versão do callback compartilhado.
 
 Escopos: `openid`, `email`, `calendar.app.created`, `calendar.calendarlist.readonly`, `tasks`. A leitura de metadados das agendas permite recuperar a agenda própria após interrupção na criação. Tasks não oferece escopo limitado a uma lista; o código restringe as operações à lista gerenciada.
 

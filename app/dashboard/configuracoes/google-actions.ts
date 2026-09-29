@@ -2,7 +2,8 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
-import { checked, googleConfig, googleContext, scopes, seal, unseal, type Connection } from "@/lib/google/server";
+import { checked, googleConfig, googleContext, scopes, seal } from "@/lib/google/server";
+import { driveScope } from "@/lib/google/drive-model";
 import { syncGoogle, resolveGoogleIssue } from "@/lib/google/sync";
 import { previewGoogle } from "@/lib/google/preview";
 import { defaultSelection, type SyncSelection } from "@/lib/google/selection";
@@ -31,17 +32,18 @@ export async function saveGoogleAutomationAction(selection: BusinessSelection) {
         refresh(); return { success: true, message: "Preferências salvas. Novas alterações das categorias escolhidas serão enviadas automaticamente. Histórico continua sob sua escolha." };
     } catch (e) { return { success: false, message: e instanceof Error ? e.message : "Não foi possível salvar." }; }
 }
-export async function connectGoogleAction() {
+export async function connectGoogleAction(purpose: "calendar" | "drive" = "calendar") {
     try {
+        if (purpose !== "calendar" && purpose !== "drive") throw new Error("Integração inválida.");
         const config = googleConfig();
         const ctx = await googleContext();
         const state = randomBytes(32).toString("base64url");
         const verifier = randomBytes(32).toString("base64url");
         checked(await ctx.db.from("google_oauth_states").delete().eq("owner_id", ctx.owner));
-        checked(await ctx.db.from("google_oauth_states").insert({ owner_id: ctx.owner, state_hash: createHash("sha256").update(state).digest("hex"), verifier_cipher: seal(verifier, ctx.owner), expires_at: new Date(Date.now() + 600000).toISOString() }));
+        checked(await ctx.db.from("google_oauth_states").insert({ owner_id: ctx.owner, purpose, state_hash: createHash("sha256").update(state).digest("hex"), verifier_cipher: seal(verifier, ctx.owner), expires_at: new Date(Date.now() + 600000).toISOString() }));
         (await cookies()).set("escoply-google-state", state, { httpOnly: true, secure: config.redirect.startsWith("https:"), sameSite: "lax", path: "/", maxAge: 600 });
         const url = new URL("https://accounts.google.com/o/oauth2/v2/auth");
-        url.search = new URLSearchParams({ client_id: config.clientId, redirect_uri: config.redirect, response_type: "code", scope: scopes.join(" "), access_type: "offline", prompt: "consent", state, code_challenge: createHash("sha256").update(verifier).digest("base64url"), code_challenge_method: "S256" }).toString();
+        url.search = new URLSearchParams({ client_id: config.clientId, redirect_uri: config.redirect, response_type: "code", scope: (purpose === "drive" ? ["openid", "email", driveScope] : scopes).join(" "), include_granted_scopes: "false", access_type: "offline", prompt: "consent", state, code_challenge: createHash("sha256").update(verifier).digest("base64url"), code_challenge_method: "S256" }).toString();
         return { success: true, message: "", url: url.toString() };
     }
     catch {
@@ -55,14 +57,10 @@ export async function disconnectGoogleAction() {
         if (!checked(await ctx.db.rpc("acquire_google_lock", { p_owner: ctx.owner, p_lock: lease })))
             throw new Error("Aguarde alguns segundos e tente novamente.");
         try {
-            const row = checked(await ctx.db.from("google_connections").select("*").eq("owner_id", ctx.owner).single()) as Connection;
-            if (row.refresh_cipher) {
-                const revoked = await fetch("https://oauth2.googleapis.com/revoke", { method: "POST", body: new URLSearchParams({ token: unseal(row.refresh_cipher, ctx.owner) }), signal: AbortSignal.timeout(8000) });
-                if (!revoked.ok && revoked.status !== 400)
-                    throw new Error("Não foi possível revogar o acesso. Tente novamente.");
-            }
+            // Google revocation affects the entire Cloud project, including Drive.
+            // Disconnect only this feature; full revocation remains available in the Google account.
             checked(await ctx.db.from("google_connections").update({ refresh_cipher: null, status: "disconnected", last_message: "Desconectado. Registros e vínculos preservados para reconexão à mesma conta." }).eq("owner_id", ctx.owner));
-            checked(await ctx.db.from("google_oauth_states").delete().eq("owner_id", ctx.owner));
+            checked(await ctx.db.from("google_oauth_states").delete().eq("owner_id", ctx.owner).eq("purpose", "calendar"));
         }
         finally {
             await ctx.db.from("google_connections").update({ lock_id: null, lock_until: null }).eq("owner_id", ctx.owner).eq("lock_id", lease);

@@ -21,7 +21,7 @@ export function SettingsSidebar({ activeTab, onChange }: { activeTab: SettingsTa
         {settingsItems.map((item) => {
           const Icon = item.icon;
           return (
-            <button key={item.id} type="button" className={activeTab === item.id ? "active" : ""} onClick={() => onChange(item.id)}>
+            <button key={item.id} type="button" className={activeTab === item.id ? "active" : ""} aria-current={activeTab === item.id ? "page" : undefined} onClick={() => onChange(item.id)}>
               <Icon size={17} />
               <span>{item.label}</span>
               {item.badge && <em>{item.badge}</em>}

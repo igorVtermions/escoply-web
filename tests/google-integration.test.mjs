@@ -27,6 +27,100 @@ function loader(overrides={}) {
   return load;
 }
 const model=loader()('lib/google/model.ts');
+const driveModel=loader()('lib/google/drive-model.ts');
+test('Drive references reject injected paths, headers and trashed files',()=>{
+  for (const id of ['../secret','abc?alt=media','a\r\nb','',null]) assert.throws(()=>driveModel.validateDriveSelection({id}));
+  assert.throws(()=>driveModel.validateDriveSelection({id:'file-id',resourceKey:'x/y'}));
+  assert.throws(()=>driveModel.driveFileUrl({id:'file-id',name:'Private',mimeType:'text/plain',trashed:true}));
+  assert.equal(driveModel.driveFileUrl({id:'folder-id',name:'Materials',mimeType:driveModel.folderMime},'key_1'),'https://drive.google.com/drive/folders/folder-id?resourcekey=key_1');
+});
+function driveHarness(initial={}) {
+  const db=database(initial);const ctx={owner:'owner-a',db};let tokenCalls=0;
+  const server={checked:r=>{if(r.error)throw new Error('database failed');return r.data;},googleContext:async()=>ctx,seal:v=>'sealed:'+v,unseal:v=>v,tokenRequest:async()=>{tokenCalls++;return {access_token:'test'};}};
+  const drive=loader({'./server':server})('lib/google/drive.ts');
+  return {db,ctx,drive,server,tokenCalls:()=>tokenCalls};
+}
+test('Drive project authorization rejects another owner before accessing Google',async()=>{
+  const id=crypto.randomUUID();const h=driveHarness({projects:[{id,owner_id:'owner-b'}]});
+  await assert.rejects(()=>h.drive.requireDriveProject(h.ctx,id),/não encontrado/);
+  assert.equal(h.tokenCalls(),0);
+});
+test('Drive cannot refresh disconnected accounts or bypass daily ceiling',async()=>{
+  const h=driveHarness({google_drive_connections:[{owner_id:'owner-a',status:'disconnected',refresh_cipher:'secret'}]});
+  await assert.rejects(()=>h.drive.driveAccess(h.ctx),/Conecte/);
+  h.db.tables.google_drive_connections[0].status='connected';h.db.rpc=async()=>({data:false,error:null});
+  await assert.rejects(()=>h.drive.driveAccess(h.ctx),/Limite diário/);
+  assert.equal(h.tokenCalls(),0);
+});
+test('Drive reconnection preserves refresh token, rejects account swap and stale updates',async()=>{
+  const row={owner_id:'owner-a',google_sub:'sub-a',email:'a@example.test',refresh_cipher:'old-cipher',status:'connected',version:'v1'};
+  const h=driveHarness({google_drive_connections:[row]});
+  await assert.rejects(()=>h.drive.saveDriveConnection(h.ctx,row,{sub:'sub-b',email:'b@example.test'},'new'),/mesma conta/);
+  await h.drive.saveDriveConnection(h.ctx,row,{sub:'sub-a',email:'a@example.test'});
+  assert.equal(h.db.tables.google_drive_connections[0].refresh_cipher,'old-cipher');
+  await assert.rejects(()=>h.drive.saveDriveConnection(h.ctx,row,{sub:'sub-a',email:'a@example.test'},'new'),/conexão mudou/);
+});
+test('Drive disconnect deletes only its credential, preserves files and Calendar',async()=>{
+  const h=driveHarness({google_drive_connections:[{owner_id:'owner-a',status:'connected',refresh_cipher:'drive-secret'},{owner_id:'owner-b',status:'connected',refresh_cipher:'other-secret'}],google_connections:[{owner_id:'owner-a',status:'connected',refresh_cipher:'calendar-secret'}],google_oauth_states:[{owner_id:'owner-a',purpose:'drive'},{owner_id:'owner-a',purpose:'calendar'}],project_materials:[{id:'m1'}]});
+  const actions=loader({'next/cache':{revalidatePath:()=>{}},'@/lib/google/server':h.server,'@/lib/google/drive':h.drive,'@/lib/google/drive-model':driveModel})('app/dashboard/configuracoes/drive-actions.ts');
+  assert.equal((await actions.disconnectDriveAction()).success,true);
+  assert.equal(h.db.tables.google_drive_connections[0].refresh_cipher,null);
+  assert.equal(h.db.tables.google_drive_connections[1].refresh_cipher,'other-secret');
+  assert.equal(h.db.tables.google_connections[0].refresh_cipher,'calendar-secret');
+  assert.equal(h.db.tables.project_materials.length,1);
+  assert.deepEqual(h.db.tables.google_oauth_states,[{owner_id:'owner-a',purpose:'calendar'}]);
+});
+test('Drive attachment rejects missing project ownership before a remote request',async()=>{
+  const h=driveHarness({projects:[]});let called=false;
+  const actions=loader({'next/cache':{revalidatePath:()=>{}},'@/lib/google/server':h.server,'@/lib/google/drive':{...h.drive,readDriveFile:async()=>{called=true;}},'@/lib/google/drive-model':driveModel})('app/dashboard/configuracoes/drive-actions.ts');
+  const result=await actions.attachDriveFileAction(crypto.randomUUID(),{id:'file-id'},'material');
+  assert.equal(result.success,false);assert.equal(called,false);assert.equal(h.tokenCalls(),0);
+});
+test('Drive attachment uses verified metadata and an idempotent owner/project key',async()=>{
+  const projectId=crypto.randomUUID();
+  const h=driveHarness({projects:[{id:projectId,owner_id:'owner-a'}],google_drive_connections:[{owner_id:'owner-a',google_sub:'sub-a',status:'connected',refresh_cipher:'sealed',version:'v1'}]});
+  const writes=[];const original=h.db.from;
+  h.db.from=name=>name==='project_materials'?{upsert:async(row,options)=>{writes.push({row,options});return {data:[],error:null};}}:original(name);
+  const actions=loader({'next/cache':{revalidatePath:()=>{}},'@/lib/google/server':h.server,'@/lib/google/drive':{...h.drive,readDriveFile:async()=>({file:{id:'file-id',name:'Verified name',mimeType:'application/pdf'},url:'https://drive.google.com/file/d/file-id/view'})},'@/lib/google/drive-model':driveModel})('app/dashboard/configuracoes/drive-actions.ts');
+  const selected={id:'file-id',name:'Forged',url:'javascript:alert(1)',owner_id:'owner-b'};
+  assert.equal((await actions.attachDriveFileAction(projectId,selected,'material')).success,true);
+  assert.equal(writes[0].row.owner_id,'owner-a');assert.equal(writes[0].row.title,'Verified name');
+  assert.equal(writes[0].row.kind,'link');assert.equal(writes[0].row.drive_account,'sub-a');
+  assert.equal(writes[0].options.onConflict,'owner_id,project_id,drive_account,drive_file_id');
+  assert.equal(writes[0].options.ignoreDuplicates,true);
+  assert.equal((await actions.attachDriveFileAction(projectId,selected,'folder')).success,false);
+  assert.equal(writes.length,1);
+});
+test('Drive remote verification rejects inaccessible or trashed files and supplies resource key',async()=>{
+  const h=driveHarness();const original=globalThis.fetch;
+  try {
+    globalThis.fetch=async(url,options)=>{
+      assert.equal(options.headers['X-Goog-Drive-Resource-Keys'],'file-id/key');
+      assert.ok(url.includes('files/file-id?'));
+      return {ok:true,json:async()=>({id:'file-id',name:'Deleted',mimeType:'text/plain',trashed:true})};
+    };
+    await assert.rejects(()=>h.drive.readDriveFile('token',{id:'file-id',resourceKey:'key'}),/lixeira/);
+    globalThis.fetch=async()=>({ok:false,status:404});
+    await assert.rejects(()=>h.drive.readDriveFile('token',{id:'file-id'}),/indisponível/);
+  } finally {globalThis.fetch=original;}
+});
+test('Drive OAuth consumes owner-bound state and accepts Drive without Calendar scopes',async()=>{
+  const state='test-state';
+  const h=driveHarness({google_oauth_states:[{owner_id:'owner-a',state_hash:crypto.createHash('sha256').update(state).digest('hex'),verifier_cipher:'verifier',purpose:'drive',expires_at:'2999-01-01T00:00:00Z'}],google_connections:[{owner_id:'owner-a',refresh_cipher:'calendar-secret'}]});
+  const original=globalThis.fetch;let exchanged=0;
+  const server={...h.server,googleConfig:()=>({redirect:'http://localhost:3000/api/integrations/google/callback'}),scopes:['https://www.googleapis.com/auth/tasks'],tokenRequest:async()=>{exchanged++;return {access_token:'access',refresh_token:'drive-refresh',scope:driveModel.driveScope};}};
+  const route=loader({'next/headers':{cookies:async()=>({get:()=>({value:state}),delete:()=>{}})},'next/server':{NextResponse:{redirect:(url)=>url}},'@/lib/google/server':server,'@/lib/google/drive':h.drive,'@/lib/google/drive-model':driveModel})('app/api/integrations/google/callback/route.ts');
+  try {
+    globalThis.fetch=async()=>({ok:true,json:async()=>({sub:'sub-a',email:'a@example.test',email_verified:true})});
+    const request={nextUrl:new URL('http://localhost:3000/api/integrations/google/callback?state='+state+'&code=test')};
+    const response=await route.GET(request);
+    assert.equal(response.searchParams.get('drive'),'connected');
+    assert.equal(h.db.tables.google_drive_connections[0].refresh_cipher,'sealed:drive-refresh');
+    assert.equal(h.db.tables.google_connections[0].refresh_cipher,'calendar-secret');
+    assert.equal(h.db.tables.google_oauth_states.length,0);
+    await route.GET(request);assert.equal(exchanged,1,'consumed state cannot be replayed');
+  } finally {globalThis.fetch=original;}
+});
 const base={title:'Reunião',description:'Briefing',start:'2026-09-25T12:00:00.000Z',end:'2026-09-25T13:00:00.000Z',allDay:false,completed:false,reminders:{useDefault:false,overrides:[{method:'popup',minutes:15}]}};
 test('three-way comparison preserves independent edits and detects conflicts',()=>{
   const local={...base,title:'Alterado no app'};const remote={...base,title:'Alterado no Google'};
@@ -85,7 +179,7 @@ function database(initial){
     constructor(name){this.name=name;this.filters=[];this.operation='read';this.one=false;}
     select(){return this;}eq(k,v){this.filters.push(r=>r[k]===v);return this;}
     in(k,values){this.filters.push(r=>values.includes(r[k]));return this;}
-    lt(k,v){this.filters.push(r=>r[k]<v);return this;}lte(k,v){this.filters.push(r=>r[k]<=v);return this;}limit(n){this.slice=[0,n];return this;}
+    lt(k,v){this.filters.push(r=>r[k]<v);return this;}gt(k,v){this.filters.push(r=>r[k]>v);return this;}lte(k,v){this.filters.push(r=>r[k]<=v);return this;}limit(n){this.slice=[0,n];return this;}
     order(k){this.sort=k;return this;}range(a,b){this.slice=[a,b+1];return this;}
     maybeSingle(){this.one=true;return this;}single(){this.one=true;return this;}
     update(v){this.operation='update';this.values=v;return this;}insert(v){this.operation='insert';this.values=v;return this;}delete(){this.operation='delete';return this;}

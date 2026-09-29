@@ -27,6 +27,8 @@ Não há estrutura implementada de equipe, organização, convites ou colaboraç
 
 ## Matriz de funcionalidades
 
+Google Drive — 29/09/2026: primeira etapa implementada localmente, com conexão em configurações, seleção de arquivos como materiais/Links e uma pasta vinculada por projeto. Sem cópia, upload ou compartilhamento automático. Configuração externa, migration e piloto ainda pendentes; ver [guia Drive](../GOOGLE_DRIVE.md).
+
 Atualização Google — 26/09/2026: código local agora inclui modal na agenda, prévia seletiva de histórico, envio automático de novas tarefas/compromissos e categorias opcionais de prazos de projeto, orçamento, recebimento e obrigação. Migrations aplicadas no escoply. Importação de mudanças externas continua manual; não há geração de recorrência. Piloto da fila e UI autenticada pendentes; sem deploy nesta entrega.
 
 | Área | O que existe no código | Limite relevante |

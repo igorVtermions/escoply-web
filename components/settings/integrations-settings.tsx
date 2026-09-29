@@ -1,4 +1,5 @@
-import { Bot, ChevronDown, Mail, MessageCircle, PlugZap, Triangle } from "lucide-react";
+import { Bot, ChevronDown, Mail, MessageCircle, PlugZap } from "lucide-react";
+import { DrivePanel } from "@/components/google/drive-panel";
 import { GooglePanel } from "@/components/google/google-panel";
 import { CalendarLogo } from "@/components/google/google-agenda-button";
 import type { GoogleStatus } from "@/lib/google/model";
@@ -6,7 +7,6 @@ import { SettingsSectionShell } from "./settings-section-shell";
 
 const integrations = [
   { name: "WhatsApp", description: "Enviar mensagens e cobranças com contexto do cliente.", icon: MessageCircle },
-  { name: "Google Drive", description: "Conectar arquivos e materiais dos projetos.", icon: Triangle },
   { name: "E-mail", description: "Centralizar aprovações, propostas e follow-ups.", icon: Mail },
   { name: "IA Escoply", description: "Resumo inteligente, busca em contexto e sugestões futuras.", icon: Bot },
 ];
@@ -23,6 +23,7 @@ export function IntegrationsSettings({ googleStatus }: { googleStatus: GoogleSta
         </summary>
         <GooglePanel status={googleStatus} />
       </details>
+      <DrivePanel />
       <div className="settings-integration-grid">
         {integrations.map((integration) => {
           const Icon = integration.icon;

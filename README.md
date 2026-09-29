@@ -32,7 +32,7 @@ Cliente → Projeto → Escopo → Orçamento → Aprovação → Entrega → Pa
 
 ## Estado atual do projeto
 
-Atualizado em **26/09/2026**. As funcionalidades descritas refletem o código do repositório; não comprovam que a mesma versão esteja publicada na Vercel. Validações e limitações da integração estão no [guia Google](./docs/GOOGLE_INTEGRATION.md).
+Atualizado em **29/09/2026**. As funcionalidades descritas refletem o código do repositório; não comprovam que a mesma versão esteja publicada na Vercel. Consulte o [guia Agenda/Tasks](./docs/GOOGLE_INTEGRATION.md) e o [guia Google Drive](./docs/GOOGLE_DRIVE.md), cuja ativação ainda depende de configuração e migration.
 
 ### Contexto para agentes e colaboradores
 
@@ -69,13 +69,15 @@ Implementado atualmente:
 Ainda não implementado ou em evolução:
 
 - planos/pagamentos reais de assinatura;
-- demais integrações externas, como WhatsApp, Google Drive e e-mail;
+- demais integrações externas, como WhatsApp e e-mail;
 - importação automática de alterações feitas no Google e geração de ocorrências recorrentes;
 - IA/RAG do Escoply;
 - app mobile;
 - políticas finais de Termos de Uso e Privacidade revisadas juridicamente.
 
 ## Agenda e integração Google
+
+Google Drive possui uma primeira implementação local: conexão independente, seletor de arquivos nos materiais (aba Links) e vínculo de pasta por projeto. Os originais permanecem no Drive; remover o vínculo não exclui os arquivos. **Pendente de ativação**, sem upload ou criação automática de pastas nesta etapa. Configuração, custos, migration e roteiro de testes no [guia Drive](./docs/GOOGLE_DRIVE.md).
 
 Na agenda, o botão **Google Agenda** mostra o estado da conexão: verde para conectado e vermelho para desconectado. Ele abre um modal com conexão, preferências e sincronização do histórico. A configuração também está disponível em **Configurações → Integrações**. No Kanban, **Novo compromisso** e **Nova tarefa** compartilham o grupo de ações.
 
@@ -129,6 +131,10 @@ GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
 GOOGLE_REDIRECT_URI=http://localhost:3000/api/integrations/google/callback
 GOOGLE_TOKEN_ENCRYPTION_KEY=
+
+# Drive: configuração pública do Picker, entregue pelo servidor após autenticação
+GOOGLE_PICKER_API_KEY=
+GOOGLE_CLOUD_PROJECT_NUMBER=
 ```
 
 Observações:
@@ -139,7 +145,7 @@ Observações:
 - `GOOGLE_TOKEN_ENCRYPTION_KEY` deve conter 32 bytes aleatórios em hexadecimal (64 caracteres). Ambientes que compartilham o banco de conexões precisam usar a mesma chave.
 - Na Vercel, configure as variáveis do servidor e use o callback HTTPS do domínio publicado. Cadastre o mesmo endereço nos redirecionamentos autorizados do cliente OAuth Web no Google Cloud.
 - Ative Google Calendar API e Google Tasks API. Durante os testes OAuth, inclua as contas participantes como usuários de teste.
-- O acesso privilegiado do Supabase e os tokens Google permanecem no servidor. A integração exige suas migrations; apenas cadastrar variáveis não a ativa por completo.
+- O acesso privilegiado do Supabase, os refresh tokens Google e os tokens Agenda/Tasks permanecem no servidor. O Picker usa token temporário próprio de arquivos no navegador. As integrações exigem suas migrations; apenas cadastrar variáveis não as ativa por completo.
 
 ## Executando localmente
 

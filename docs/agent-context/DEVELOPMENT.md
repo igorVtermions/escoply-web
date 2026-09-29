@@ -2,6 +2,10 @@
 
 ## Ambiente local
 
+Atualização de ativação Drive: variáveis Picker presentes localmente; migration `202609290001_google_drive.sql` aplicada em `vdtjfjkupgfepdcxyidh` após comparar o destino do app com a CLI e revisar dry-run. OAuth/Picker autenticado e deploy ainda pendentes. Este registro substitui a pendência de migration abaixo.
+
+Drive — 29/09/2026: lint, tipos, build e 44 testes Google aprovados. Duas variáveis do Picker ainda ausentes localmente; migration nova não aplicada e nenhum deploy. O callback compartilhado exige a migration antes de publicar. [Ativação e validação pendente](../GOOGLE_DRIVE.md).
+
 Google, 26/09/2026: migrations da projeção e fila automática aplicadas no escoply, dry-run final sem pendências. 35 testes Google, lint, tipos e build aprovados. `after` é chamado apenas por mutações autenticadas; workspace retoma a fila enquanto visível. Sem navegador conectado para QA visual e sem deploy nesta entrega. Consulte `docs/GOOGLE_INTEGRATION.md` para o estado atual, que substitui as anotações históricas de preparação abaixo.
 
 - Use npm e o `package-lock.json` existente.

@@ -2,6 +2,14 @@
 
 ## Estado real do sistema visual
 
+Picker Drive solicita escolha explícita de conta Google; card do projeto informa a conta conectada que deve ser selecionada. Não pula a escolha por login hint.
+
+No detalhe do projeto, o card Google Drive em Materiais tem margem superior e lateral de 1rem, alinhada às abas e à lista de materiais, sem encostar no cabeçalho ou nas bordas da seção.
+
+Cards Google Agenda/Drive dentro de configurações têm margem lateral de 1,55rem (1rem até 640px), para separar suas bordas do painel externo. Regra restrita aos disclosures diretamente dentro de `.settings-panel`, em `settings-overrides.css`.
+
+Configurações: troca entre seções atualiza `tab` com History API nativa, integrada a `useSearchParams`, sem navegação de servidor. Os dados já carregados são reutilizados; URL direta, parâmetros adicionais e hash são preservados. Salvamentos continuam revalidando dados. A consulta de status do Drive pode ocorrer ao montar Integrações, mas não bloqueia a troca de seção.
+
 Configurações → Integrações: Google aparece em card recolhido por padrão com ícone, conta e status verde/vermelho. Disclosure nativo permite expandir/recolher as opções com teclado. Header mantém ações à direita com margem de 12px.
 
 Header do workspace sem busca global: notificações, perfil e saída permanecem alinhados à direita. Buscas específicas dos módulos permanecem nas respectivas páginas.
@@ -143,6 +151,8 @@ Em mudanças visuais, verifique pelo menos uma viewport mobile (~390px), interme
 `globals.css` possui tratamento de `prefers-reduced-motion`. Ao criar animações de domínio, respeite essa preferência. Preserve transições existentes sem adicionar movimento que atrase tarefas frequentes. Valide leitura, foco e clique com zoom de 200% quando afetados.
 
 ## CSS: localização e ordem
+
+Google Drive — 29/09/2026: cartão recolhível em configurações com logo e status; controles compactos em Materiais do projeto, com Google Picker por clique. Arquivos vinculados aparecem em Links. Pasta pode ser aberta/trocada/desvinculada; original preservado. Estilos `google-drive-*` em `google.css`. [Limites e QA pendente](../GOOGLE_DRIVE.md).
 
 Integração Google: `app/dashboard/google.css`, carregado pelo layout após `dashboard.css`, usa prefixos `google-`. Painel em configurações/agenda com loading, erros, estado de conexão e revisão de conflitos. Compromissos usam diálogo nativo `showModal()` em portal, Escape, bloqueio/restauração de scroll e foco. Calendário apresenta dia inteiro e 24 horas; compromissos que atravessam dias aparecem nos dias sobrepostos. Teste visual autenticado ainda pendente da ativação da migration.
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { AboutSettings } from "./about-settings";
 import type { GoogleStatus } from "@/lib/google/model";
 import { DataSettings } from "./data-settings";
@@ -28,14 +28,14 @@ function renderSettingsTab(tab: SettingsTab, profile: UserProfile, professional:
 }
 
 export function SettingsPageContent({ profile, professional, notifications, googleStatus }: { googleStatus: GoogleStatus; profile: UserProfile; professional: ProfessionalProfile; notifications: NotificationPreferences }) {
-  const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const initialTab = searchParams.get("tab");
   const activeTab: SettingsTab = validTabs.includes(initialTab as SettingsTab) ? (initialTab as SettingsTab) : "profile";
 
   function handleTabChange(tab: SettingsTab) {
-    const params = new URLSearchParams(searchParams.toString());
+    if (tab === activeTab) return;
+    const params = new URLSearchParams(window.location.search);
     if (tab === "profile") {
       params.delete("tab");
     } else {
@@ -43,7 +43,9 @@ export function SettingsPageContent({ profile, professional, notifications, goog
     }
 
     const nextUrl = params.toString() ? `${pathname}?${params.toString()}` : pathname;
-    router.replace(nextUrl, { scroll: false });
+    // Tabs use the already loaded props. Native history updates useSearchParams
+    // without a server navigation and its repeated profile/integration queries.
+    window.history.replaceState(null, "", `${nextUrl}${window.location.hash}`);
   }
 
   return (

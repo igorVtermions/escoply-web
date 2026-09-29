@@ -1,4 +1,5 @@
 "use client";
+import { ProjectDrive } from "@/components/google/project-drive";
 
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -489,6 +490,7 @@ export function ProjectDetailSection({ project }: { project: ProjectDetailData }
 
           <div className="project-detail-grid middle">
             <SectionCard number={4} title="Materiais" icon={FolderOpen} action={<button type="button" onClick={() => setModal("material")}><Plus size={14} /> Material</button>}>
+              <ProjectDrive projectId={project.id} onAttached={() => setActiveMaterialTab("link")} />
               <div className="project-detail-tabs" role="tablist" aria-label="Tipos de materiais">
                 {Object.entries(materialTabLabels).map(([kind, label]) => (
                   <button

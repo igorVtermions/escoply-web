@@ -2,6 +2,8 @@
 
 ## Modelo e isolamento
 
+Google Drive — 29/09/2026: migration local `202609290001_google_drive.sql` adiciona conexão criptografada própria, propósito do estado OAuth, referências de arquivo nos materiais, pasta por projeto com FK composta e limitador diário. Tabelas auxiliares são exclusivas do servidor; cada action autentica conta ativa e verifica proprietário do projeto. Desconectar um serviço remove somente sua credencial local para não revogar outras integrações. A revogação completa é feita na conta Google. [Detalhes e estado de aplicação](../GOOGLE_DRIVE.md).
+
 O backend é Supabase: Auth para identidade, Postgres para dados, Storage para arquivos e uma Edge Function Deno. O workspace usa **propriedade por usuário**, normalmente com `owner_id = auth.users.id`. Não há camada de organização/tenant compartilhado modelada no repositório.
 
 As migrations são incrementais. Para entender o schema atual, leia a criação e todas as alterações da entidade; a migration inicial isolada não descreve a versão final.

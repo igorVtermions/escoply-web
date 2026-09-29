@@ -2,6 +2,8 @@ import { createHash, randomUUID } from "node:crypto";
 import { cookies } from "next/headers";
 import { NextResponse, type NextRequest } from "next/server";
 import { checked, googleConfig, googleContext, scopes, seal, tokenRequest, unseal, type Connection } from "@/lib/google/server";
+import { driveScope } from "@/lib/google/drive-model";
+import { driveConnection, saveDriveConnection } from "@/lib/google/drive";
 export const runtime = "nodejs";
 export async function GET(request: NextRequest) {
     const config = googleConfig();
@@ -9,12 +11,14 @@ export async function GET(request: NextRequest) {
     const jar = await cookies();
     const state = request.nextUrl.searchParams.get("state");
     const browserState = jar.get("escoply-google-state")?.value;
+    let purpose = "calendar";
     jar.delete("escoply-google-state");
     try {
         if (!state || !browserState || state !== browserState)
             throw new Error("Autorização expirada. Tente conectar novamente.");
         const ctx = await googleContext();
-        const consumed = checked(await ctx.db.from("google_oauth_states").delete().eq("owner_id", ctx.owner).eq("state_hash", createHash("sha256").update(state).digest("hex")).gt("expires_at", new Date().toISOString()).select("verifier_cipher").maybeSingle());
+        const consumed = checked(await ctx.db.from("google_oauth_states").delete().eq("owner_id", ctx.owner).eq("state_hash", createHash("sha256").update(state).digest("hex")).gt("expires_at", new Date().toISOString()).select("verifier_cipher,purpose").maybeSingle());
+        if (consumed?.purpose === "drive") purpose = "drive";
         if (!consumed || request.nextUrl.searchParams.has("error"))
             throw new Error("Autorização não concluída. Tente conectar novamente.");
         const code = request.nextUrl.searchParams.get("code");
@@ -22,8 +26,9 @@ export async function GET(request: NextRequest) {
             throw new Error("Código de autorização ausente.");
         const tokens = await tokenRequest({ grant_type: "authorization_code", code, redirect_uri: config.redirect, code_verifier: unseal(consumed.verifier_cipher, ctx.owner) });
         const granted = new Set(tokens.scope?.split(" "));
-        if (scopes.filter(s => s.startsWith("https://www.googleapis.com/auth/")).some(s => !granted.has(s)))
-            throw new Error("Autorize Agenda e Tasks para conectar.");
+        const required = purpose === "drive" ? [driveScope] : scopes.filter(s => s.startsWith("https://www.googleapis.com/auth/"));
+        if (required.some(s => !granted.has(s)))
+            throw new Error(purpose === "drive" ? "Autorize o acesso aos arquivos selecionados do Drive." : "Autorize Agenda e Tasks para conectar.");
         const infoResponse = await fetch("https://openidconnect.googleapis.com/v1/userinfo", { headers: { Authorization: `Bearer ${tokens.access_token}` }, cache: "no-store", signal: AbortSignal.timeout(8000) });
         if (!infoResponse.ok)
             throw new Error("Não foi possível identificar a conta Google.");
@@ -34,6 +39,11 @@ export async function GET(request: NextRequest) {
         };
         if (!info.sub || !info.email || !info.email_verified)
             throw new Error("Conta Google sem e-mail verificado.");
+        if (purpose === "drive") {
+            await saveDriveConnection(ctx, await driveConnection(ctx), { sub: info.sub, email: info.email }, tokens.refresh_token);
+            destination.searchParams.set("drive", "connected");
+            return NextResponse.redirect(destination, { headers: { "Cache-Control": "no-store", "Referrer-Policy": "no-referrer" } });
+        }
         const old = checked(await ctx.db.from("google_connections").select("*").eq("owner_id", ctx.owner).maybeSingle()) as Connection | null;
         if (old && old.google_sub !== info.sub)
             throw new Error("Reconecte a mesma conta Google para preservar os vínculos existentes.");
@@ -57,7 +67,7 @@ export async function GET(request: NextRequest) {
         destination.searchParams.set("google", "connected");
     }
     catch (error) {
-        destination.searchParams.set("google", "error");
+        destination.searchParams.set(purpose === "drive" ? "drive" : "google", "error");
         // Only controlled messages; never return provider bodies, tokens or authorization codes.
         destination.searchParams.set("message", error instanceof Error && !error.message.includes("fetch") ? error.message.slice(0, 180) : "Não foi possível conectar. Tente novamente.");
     }

@@ -4,6 +4,35 @@ Este arquivo serve como um diário técnico do desenvolvimento do Escoply Web. A
 
 O conteúdo poderá ser usado futuramente como fonte no NotebookLM para gerar documentação, organizar contexto do produto e levantar ideias de posts técnicos para o LinkedIn.
 
+## 29/09/2026 — Espaçamento dos cards Google
+
+Atualização Picker: removida seleção automática por login hint e habilitado `select_account`; card informa conta conectada. Erro observado `no registered origin` exige configurar a origem no cliente OAuth externo, não se resolve apenas trocando conta.
+
+- Aplicada também margem superior e lateral de 1rem ao card Drive em Materiais, alinhando-o às abas e arquivos do projeto.
+
+- Cards da Agenda e do Drive afastados das bordas do painel de configurações, com margem lateral de 1,55rem no desktop e 1rem no mobile.
+- Ajuste restrito à apresentação dos cards na seção de configurações.
+
+## 29/09/2026 — Troca local das abas de configurações
+
+- Substituído `router.replace` pela History API nativa suportada pelo Next: evita repetir consultas de perfil, preferências e status Google a cada clique nas seções.
+- Mantidos parâmetro de aba na URL, hash, demais parâmetros e revalidação após salvar. Aba ativa anunciada com `aria-current`.
+- A alteração elimina a espera da navegação de servidor; não representa medição de latência em produção.
+
+## 29/09/2026 — Ativação do banco para Google Drive
+
+- Após usuário configurar o ambiente, verificada presença das variáveis Picker e formato numérico do projeto, sem exibir valores.
+- Host Supabase do app e vínculo CLI coincidem em `vdtjfjkupgfepdcxyidh`. Dry-run indicou somente `202609290001_google_drive.sql`; aplicada com sucesso.
+- Guia corrigido para incluir o referrer docs.google.com e restrições de ambas as APIs segundo documentação oficial do Picker. OAuth real e deploy permanecem pendentes.
+
+## 29/09/2026 — Google Drive, primeira etapa local
+
+- Conexão OAuth independente da Agenda, seleção de arquivo pelo Picker e vínculo de pasta por projeto; metadados conferidos no servidor e referências sem cópias no Storage.
+- Desconexão por recurso passa a remover credencial local: revogação Google pode afetar todo o projeto Cloud. UI explica revogação completa na conta Google.
+- Migration incremental preparada com isolamento, FK composta, unicidade de arquivos e teto diário por proprietário. Não aplicada remotamente nesta entrega.
+- Picker usa token temporário próprio restrito a arquivos, sem refresh token ou segredo no navegador; COOP dos projetos ajustada para popups.
+- Lint, tipos, build e 44 testes aprovados. Ativação externa, QA autenticado e deploy pendentes. Documentação em [GOOGLE_DRIVE](GOOGLE_DRIVE.md); nenhuma configuração secreta foi alterada.
+
 ## Como usar este arquivo
 
 1. Adicione um novo registro depois de uma alteração relevante no projeto.

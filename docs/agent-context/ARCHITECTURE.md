@@ -118,6 +118,8 @@ Diretrizes:
 
 ## Particularidades que não devem virar suposições
 
+Google Drive — 29/09/2026: `lib/google/drive*`, `components/google/drive*`, `project-drive.tsx` e `configuracoes/drive-actions.ts` adicionam vínculos aos materiais. O callback compartilhado roteia pelo propósito persistido do OAuth. Credenciais e status são separados por serviço; o Picker recebe token temporário próprio via Google Identity Services, restrito a `drive.file`. COOP permite popups apenas nas rotas de projetos. [Arquitetura e ativação](../GOOGLE_DRIVE.md).
+
 Google Agenda/Tasks: `lib/google/` contém OAuth/criptografia, mapeamento e sincronização manual; `components/google/` contém painel e formulários. Server Actions em `configuracoes/google-actions.ts`, `agenda/event-actions.ts` e `tarefas/edit-action.ts`. Callback externo em `/api/integrations/google/callback`; não reutiliza o callback de login Supabase. Compromissos usam `calendar_events`, tarefas continuam em `reminders`. Fluxo, limites e ativação estão no [guia Google](../GOOGLE_INTEGRATION.md). Não há worker, webhook ou job pago.
 
 - `admin-realtime.css` é nome de stylesheet; não comprova assinatura Supabase Realtime. Nas interações examinadas, atualização usa `router.refresh()`.

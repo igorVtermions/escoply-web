@@ -4,6 +4,8 @@ Snapshot de **25/09/2026**, por inspeção estática. Este arquivo orienta futur
 
 ## Produto e dados de demonstração
 
+Drive — 29/09/2026: primeira etapa implementada, variáveis presentes localmente e migration aplicada no projeto Supabase conferido. Ainda faltam validar Cloud/Picker e QA real. Não inclui upload, criação de pastas nem monitoramento de renomeações/exclusões. [Estado completo](../GOOGLE_DRIVE.md).
+
 Atualização Google em 25/09/2026: conexão OAuth, compromissos e sincronização manual Calendar/Tasks foram implementados localmente, mas migration, autorização real e deploy ainda não foram executados. Regras, limites, casos de recuperação e verificações pendentes estão no [guia Google](../GOOGLE_INTEGRATION.md). As referências abaixo a integrações futuras aplicam-se às demais integrações.
 
 | Observação confirmada no código | Evidência / efeito |
